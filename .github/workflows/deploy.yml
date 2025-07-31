@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: '3.12'
 
       - name: Cache pip
         uses: actions/cache@v3
@@ -43,6 +43,6 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: |
           aws lambda update-function-code \
-            --function-name my-lambda-function \
+            --function-name affiliateMarketingAutomation \
             --zip-file fileb://lambda_function.zip \
             --region us-east-1
