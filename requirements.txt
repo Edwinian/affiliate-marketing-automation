@@ -4,5 +4,6 @@ accelerate
 python-dotenv
 huggingface_hub
 xai-sdk
+requests
 
 

@@ -7,7 +7,7 @@ load_dotenv()  # Loads the .env file
 
 
 class LlmService:
-    def __init__(self, model_name: str = "grok-4"):
+    def __init__(self, model_name: str = "grok-3-mini"):
         self.model_name = model_name
         self.x_client = Client(api_key=os.getenv("XAI_API_KEY"))
 

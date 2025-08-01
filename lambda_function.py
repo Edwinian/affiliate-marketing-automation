@@ -1,7 +1,9 @@
 import json
 from llm_service import LlmService
+from media_service import MediaService
 
 llm_service = LlmService()
+media_service = MediaService()
 
 
 def is_valid_json(json_string):
@@ -57,3 +59,4 @@ if __name__ == "__main__":
     }
     event = {"body": json.dumps(pin_data)}
     response = lambda_handler(event, None)
+    print("response", response)
