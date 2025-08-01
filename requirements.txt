@@ -1,1 +1,8 @@
-pyjokes==0.6.0
+transformers
+torch
+accelerate
+python-dotenv
+huggingface_hub
+xai-sdk
+
+
