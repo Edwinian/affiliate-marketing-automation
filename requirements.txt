@@ -1,9 +1,4 @@
-# transformers
-# torch
-# accelerate
-# python-dotenv
-# huggingface_hub
-# xai-sdk
-requests
-
+python-dotenv
+xai-sdk
+requests 
 
