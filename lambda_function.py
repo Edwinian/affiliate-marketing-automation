@@ -1,62 +1,61 @@
-import json
-from llm_service import LlmService
+import time
+from datetime import datetime, timedelta, timezone
 from media_service import MediaService
-
-llm_service = LlmService()
-media_service = MediaService()
-
-
-def is_valid_json(json_string):
-    try:
-        parsed_data = json.loads(json_string)
-        return True, parsed_data, None
-    except json.JSONDecodeError as e:
-        return False, None, str(e)
+from pinterest_service import PinterestService
 
 
 def lambda_handler(event, context):
-    try:
-        body = event.get("body", "{}")
-        if not isinstance(body, str):
-            body = json.dumps(body)
-        is_valid, parsed_data, error = is_valid_json(body)
-        if not is_valid:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": f"Invalid JSON: {error}"}),
-            }
-        json_string = json.dumps(parsed_data, indent=2)
-        niche = "fashion"
-        prompt = f"Create a json string with value about {niche} that is SEO friendly and time-agnostic, response in json string only, json format like {json_string}"
-        response = llm_service.generate_text(
-            prompt=prompt,
-        )
-        return {"statusCode": 200, "body": json.dumps({"message": response})}
-    except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": f"Failed to process request: {str(e)}"}),
-        }
+    # Initialize PinterestService
+    pinterest_service = PinterestService()
+    trends = pinterest_service.get_trends()
+    trend_media_map: dict[str, MediaService] = {}
+
+    # Fetch images for each trend
+    for trend in trends:
+        media_service = MediaService(query=trend)
+        trend_media_map[trend] = media_service
+
+    # Repeat pin creation for 10 minutes (in HKT, adjusted to UTC for Lambda)
+    start_time = datetime.now(timezone.utc)
+    end_time = start_time + timedelta(minutes=10)
+    pin_count = 0
+
+    while datetime.now(timezone.utc) < end_time:
+        for trend in trends:
+            image_url = trend_media_map[trend].get_image_url()
+
+            if not image_url:
+                print(f"No Pinterest image found for trend: {trend}")
+                continue  # Skip to next trend
+
+            # Create pin
+            pin_id = pinterest_service.create_pin(image_url=image_url, trend=trend)
+
+            if pin_id:
+                pin_count += 1
+                print(f"Created pin {pin_id} for trend: {trend}")
+            else:
+                print(f"Failed to create pin for trend: {trend}")
+
+            # Respect Pinterest and Pexels API rate limits, delay to prevent hitting rate limits
+            time.sleep(1)
+
+        # Short delay between cycles to avoid overwhelming APIs
+        time.sleep(2)
+
+        # Break if no images are available for any trend
+        if all(
+            trend_media_map[trend].used_image_count
+            >= len(trend_media_map[trend].image_urls)
+            for trend in trends
+        ):
+            print("No more images available for any trend.")
+            break
+
+    return {"statusCode": 200, "body": f"Created {pin_count} pins in 10 minutes."}
 
 
 # Local test
 if __name__ == "__main__":
-    pin_data = {
-        "board_id": "123456789",
-        "title": "Sample Pin",
-        "description": "This is a sample pin for testing",
-        "link": "https://example.com",
-        "media_source": {
-            "source_type": "image_url",
-            "url": "https://example.com/image.jpg",
-            "content_type": "image/jpeg",
-            "data": None,
-        },
-        "alt_text": "A sample image",
-        "dominant_color": "#FF5733",
-        "parent_pin_id": "987654321",
-        "board_section_id": "456789123",
-    }
-    event = {"body": json.dumps(pin_data)}
-    response = lambda_handler(event, None)
-    print("response", response)
+    response = lambda_handler(None, None)
+    print("Response:", response)
