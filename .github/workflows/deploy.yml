@@ -8,6 +8,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -35,20 +38,19 @@ jobs:
         run: |
           cd package
           zip -r ../lambda_function.zip .
+      # Added permissions to the job to allow GitHub Actions to generate an OIDC token (id-token: write) and read repository contents (contents: read)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::211125568204:role/github_actions
+          aws-region: us-east-1
+          role-session-name: GitHubActionsSession
 
       - name: Upload to S3
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
         run: |
-          aws s3 cp lambda_function.zip s3://${{ secrets.AWS_S3_BUCKET }}/lambda_function.zip
+          aws s3 cp lambda_function.zip s3://${{ secrets.AWS_S3_BUCKET }}/lambda_function.zip --sse AES256
 
       - name: Deploy to AWS Lambda
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
         run: |
           aws lambda update-function-code \
             --function-name affiliateMarketingAutomation \
