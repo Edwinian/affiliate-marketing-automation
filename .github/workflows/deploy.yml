@@ -48,12 +48,12 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 cp lambda_function.zip s3://${{ secrets.AWS_S3_BUCKET }}/lambda_function.zip --sse AES256
+          aws s3 cp lambda_function.zip s3://automation-affiliate-marketing/lambda_function.zip --sse AES256
 
       - name: Deploy to AWS Lambda
         run: |
           aws lambda update-function-code \
             --function-name affiliateMarketingAutomation \
-            --s3-bucket ${{ secrets.AWS_S3_BUCKET }} \
+            --s3-bucket automation-affiliate-marketing \
             --s3-key lambda_function.zip \
             --region us-east-1
