@@ -13,47 +13,70 @@ class MediaService:
     def __init__(self, query: str, size: str = "original", limit: int = 80):
         self.query = query
         self.size = size
-        self.limit = limit
+        self.limit = min(limit, 80)  # Pexels API caps per_page at 80
+        self.fetch_image_urls()  # Fetch initial images during initialization
 
     def fetch_image_urls(self):
-        # Initial request parameters
-        # Ensure limit does not exceed 80
+        """
+        Fetch image URLs from Pexels API with pagination.
+        """
+        self.image_urls = []  # Clear existing URLs to avoid duplicates
+        self.used_image_count = 0  # Reset counter
+        current_count = 0
+        url = "https://api.pexels.com/v1/search"
         params = {"query": self.query, "per_page": min(self.limit, 80)}
 
-        try:
-            # Use params only for the initial request
-            response = requests.get(
-                url,
-                headers={"Authorization": os.getenv("PEXELS_API_KEY")},
-                params=params,
-            )
-            response.raise_for_status()  # Raise for HTTP errors (e.g., 429, 401)
-            data = response.json()
+        while current_count < self.limit:
+            try:
+                response = requests.get(
+                    url,
+                    headers={"Authorization": os.getenv("PEXELS_API_KEY")},
+                    params=params,
+                )
+                response.raise_for_status()
+                data = response.json()
 
-            # Extract image URLs from photos
-            for photo in data.get("photos", []):
-                src = photo.get("src", {})
-                url = src.get(self.size)
+                # Extract image URLs
+                for photo in data.get("photos", []):
+                    src = photo.get("src", {})
+                    image_url = src.get(self.size)
+                    if image_url and image_url not in self.image_urls:
+                        self.image_urls.append(image_url)
+                        current_count += 1
+                        if current_count >= self.limit:
+                            break
 
-                if url and url not in self.image_urls:
-                    self.image_urls.append(url)
+                print(
+                    f"fetch_image_urls count for {self.query}: ", len(self.image_urls)
+                )
 
-        except requests.RequestException as e:
-            print(f"Pexels API error: {str(e)}")
-            self.image_urls = []
+                # Check for next page
+                next_page = data.get("next_page")
+                if not next_page:
+                    break
+                url = next_page
+                params = (
+                    None  # Clear params for subsequent requests (uses next_page URL)
+                )
+            except requests.RequestException as e:
+                print(f"Pexels API error for query '{self.query}': {str(e)}")
+                break
+
+        if not self.image_urls:
+            print(f"No images found for query: {self.query}")
 
     def get_image_url(self) -> Optional[str]:
-        if self.used_image_count >= len(self.image_urls):
+        """
+        Return a single image URL. Fetch new images if the list is empty or exhausted.
+
+        Returns:
+            Optional[str]: A single image URL or None if none available.
+        """
+        if not self.image_urls or self.used_image_count >= len(self.image_urls):
             self.fetch_image_urls()
 
-        image_url = self.image_urls[self.used_image_count] if self.image_urls else None
-
-        if image_url:
+        if self.image_urls:
+            image_url = self.image_urls[self.used_image_count]
             self.used_image_count += 1
             return image_url
-
-
-if __name__ == "__main__":
-    service = MediaService(query="back to school outfits")
-    image_url = service.get_image_url()
-    print(f"Fetched image URL: {image_url}")
+        return None

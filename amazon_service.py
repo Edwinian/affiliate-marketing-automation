@@ -2,6 +2,7 @@ import os
 from typing import List, Optional
 from dotenv import load_dotenv
 from amazon_paapi import AmazonApi
+import requests
 
 load_dotenv()
 
@@ -16,48 +17,57 @@ class AmazonService:
         self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
     def fetch_affiliate_links(self):
-        try:
-            # Search for products using the query
-            response = self.amazon.search_items(
-                keywords=self.query,
-                search_index="All",  # Broad search across all categories
-                item_count=min(
-                    self.limit, 10
-                ),  # Amazon PA API allows max 10 items per request
-            )
-            self.affiliate_links = []
+        """
+        Fetch affiliate links from Amazon PA API with pagination.
+        """
+        self.affiliate_links = []  # Clear existing links
+        self.used_link_count = 0  # Reset counter
+        current_count = 0
+        item_page = 1  # Start with page 1
 
-            if response.items:
-                for item in response.items:
-                    affiliate_link = item.detail_page_url
+        while current_count < self.limit:
+            try:
+                response = self.amazon.search_items(
+                    keywords=self.query,
+                    search_index="All",
+                    item_count=min(self.limit - current_count, 10),
+                    item_page=item_page,  # Pagination parameter
+                    resources=["ItemInfo.Title", "Offers.Listings.Price"],
+                )
+                if response.items:
+                    for item in response.items:
+                        if (
+                            item.detail_page_url
+                            and item.detail_page_url not in self.affiliate_links
+                        ):
+                            self.affiliate_links.append(item.detail_page_url)
+                            current_count += 1
+                            if current_count >= self.limit:
+                                break
 
-                    if (
-                        item.offers
-                        and item.offers.listings
-                        and affiliate_link not in self.affiliate_links
-                    ):
-                        self.affiliate_links.append(affiliate_link)
+                # Check for next page (NextToken)
+                next_page = getattr(response.search_result, "next_token", None)
+                if not next_page or item_page >= 10:  # Amazon limits to 10 pages
+                    break
+                item_page += 1
+            except requests.RequestException as e:
+                print(f"Amazon API error for query '{self.query}': {str(e)}")
+                break
+            except Exception as e:
+                print(f"Error querying Amazon API for query '{self.query}': {e}")
+                break
 
-            if not self.affiliate_links:
-                print(f"No products found for query: {self.query}")
-        except Exception as e:
-            print(f"Error querying Amazon API for query '{self.query}': {e}")
-            self.affiliate_links = []
+        if not self.affiliate_links:
+            print(f"No products found for query: {self.query}")
 
     def get_affiliate_link(self) -> Optional[str]:
-        if self.used_link_count >= len(self.affiliate_links):
+        if not self.affiliate_links or self.used_link_count >= len(
+            self.affiliate_links
+        ):
             self.fetch_affiliate_links()
 
-        affiliate_link = (
-            self.affiliate_links[self.used_link_count] if self.affiliate_links else None
-        )
-
-        if affiliate_link:
+        if self.affiliate_links:
+            affiliate_link = self.affiliate_links[self.used_link_count]
             self.used_link_count += 1
             return affiliate_link
-
-
-if __name__ == "__main__":
-    service = AmazonService(query="Anime")
-    affiliate_link = service.get_affiliate_link()
-    print(f"Fetched affiliate link: {affiliate_link}")
+        return None

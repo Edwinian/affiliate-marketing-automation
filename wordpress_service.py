@@ -120,12 +120,11 @@ class WordpressService(ChannelService):
         Generates SEO-friendly post content with affiliate link.
         """
         try:
-            prompt = f"Create a WordPress blog post body for the title '{title}' that is SEO-friendly and time-agnostic. Respond with the content only (200-300 words)."
+            prompt = f"Create a WordPress blog post body for the title '{title}' that is SEO-friendly and time-agnostic. Respond with the content only (500-700 words)."
             content = self.llm_service.generate_text(prompt)
 
             if affiliate_link:
-                content += f"\n\n<a href='{affiliate_link}' target='_blank'>Shop {trend} Now #ad</a>\n\nDisclosure: This post contains affiliate links, which means we may earn a commission at no extra cost to you."
-
+                content += f"\n\n<a href='{affiliate_link}' target='_blank'>Shop {trend} Now #ad</a>\n\nDisclosure: This post contains affiliate links."
             return content
         except Exception as e:
             print(f"Error generating content: {e}")

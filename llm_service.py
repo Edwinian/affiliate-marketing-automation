@@ -18,5 +18,5 @@ class LlmService:
         chat = self.x_client.chat.create(model=self.model_name)
         chat.append(user(prompt))
         response = chat.sample()
-        print(response.content)
+        print(f"LLM response generated")
         return response.content

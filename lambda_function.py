@@ -10,16 +10,27 @@ from wordpress_service import WordpressService
 def lambda_handler(event, context):
     pinterest_service = PinterestService()
     # trends = pinterest_service.get_trends()
-    trends = ["anime"]
+    trends = [
+        "Bamboo T-shirts with custom embroidery",
+        "smart thermostats with voice control",
+        "reusable stainless steel water bottles",
+        "wearable fitness trackers (smart rings)",
+        "retro-inspired vinyl record players",
+        "eco-friendly soy candles",
+        "personalized engraved jewelry",
+        "smart air purifiers",
+        "sustainable meal prep containers",
+        "mushroom coffee blends",
+    ]
     trend_media_map: dict[str, MediaService] = {}
-    trend_amazon_map: dict[str, AmazonService] = {}
+    # trend_amazon_map: dict[str, AmazonService] = {}
 
     # Fetch images for each trend
     for trend in trends:
-        amazon_service = AmazonService(query=trend)
+        # amazon_service = AmazonService(query=trend)
         media_service = MediaService(query=trend)
 
-        trend_amazon_map[trend] = amazon_service
+        # trend_amazon_map[trend] = amazon_service
         trend_media_map[trend] = media_service
 
     # Repeat content creation for 10 minutes (in HKT, adjusted to UTC for Lambda)
