@@ -8,7 +8,8 @@ from wordpress_service import WordpressService
 
 def lambda_handler(event, context):
     pinterest_service = PinterestService()
-    trends = pinterest_service.get_trends()
+    # trends = pinterest_service.get_trends()
+    trends = ["anime"]
     trend_media_map: dict[str, MediaService] = {}
 
     # Fetch images for each trend
@@ -16,14 +17,17 @@ def lambda_handler(event, context):
         media_service = MediaService(query=trend)
         trend_media_map[trend] = media_service
 
-    # Repeat pin creation for 10 minutes (in HKT, adjusted to UTC for Lambda)
+    # Repeat content creation for 10 minutes (in HKT, adjusted to UTC for Lambda)
     start_time = datetime.now(timezone.utc)
     end_time = start_time + timedelta(minutes=10)
-    channels: list[ChannelService] = [PinterestService(), WordpressService()]
+    channels: list[ChannelService] = [WordpressService()]
     create_count = {channel.__class__.__name__: 0 for channel in channels}
 
     while datetime.now(timezone.utc) < end_time:
         for trend in trends:
+            # TODO: query for an affiliate link based on trend
+            affiliate_link = "https://example.com/affiliate-link"
+
             for channel in channels:
                 try:
                     image_url = trend_media_map[trend].get_image_url()
@@ -33,11 +37,13 @@ def lambda_handler(event, context):
                         break  # Skip to next trend
 
                     content_id = channel.create(
-                        image_url=image_url, trend=trend, affiliate_link=""
+                        image_url=image_url, trend=trend, affiliate_link=affiliate_link
                     )
 
                     if content_id:
-                        print(f"Created pin {content_id} for {trend}")
+                        print(
+                            f"{channel.__class__.__name__}: CREATED CONTENT {content_id} for {trend}"
+                        )
                         create_count[channel.__class__.__name__] += 1
                     else:
                         print(

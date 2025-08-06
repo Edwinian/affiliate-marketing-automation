@@ -61,3 +61,9 @@ class MediaService:
         if image_url:
             self.used_image_count += 1
             return image_url
+
+
+if __name__ == "__main__":
+    service = MediaService(query="back to school outfits")
+    image_url = service.get_image_url()
+    print(f"Fetched image URL: {image_url}")
