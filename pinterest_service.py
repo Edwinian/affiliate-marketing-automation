@@ -3,13 +3,13 @@ from typing import List
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
-
+from channel_service import ChannelService
 from llm_service import LlmService
 
 load_dotenv()  # Loads the .env file
 
 
-class PinterestService:
+class PinterestService(ChannelService):
     def __init__(self):
         self.base_url = "https://api.pinterest.com/v5"
         self.headers = {
@@ -75,14 +75,10 @@ class PinterestService:
         Returns the section ID.
         """
         try:
-            # Get the first board's ID
             board_id = self._get_board_id()
-
             if not board_id:
                 print("Cannot create section: No valid board ID found.")
                 return ""
-
-            # Create the board section
             url = f"{self.base_url}/boards/{board_id}/sections"
             payload = {"name": section_name}
             response = requests.post(url, headers=self.headers, json=payload)
@@ -93,36 +89,66 @@ class PinterestService:
             print(f"Error creating board section: {e}")
             return ""
 
-    def create_pin(self, image_url: str, trend: str) -> str:
+    def create(self, image_url: str, trend: str, affiliate_link: str = "") -> str:
         """
-        Creates a pin on the specified board with the given image URL, title, and optional description.
+        Creates a pin on the specified board with the given image URL, trend, and optional affiliate link.
         Returns the pin ID.
         """
         try:
             board_id = self._get_board_id()
-            title = self.get_pin_title(trend)
+            if not board_id:
+                print("No valid board ID found.")
+                return ""
+
+            # Generate SEO-friendly title with affiliate disclosure
+            title = self.get_pin_title(trend + " #ad")
+            # Include affiliate link in description if provided
             description = self.get_pin_description(title)
+
+            if affiliate_link:
+                description += f"\nShop now: {affiliate_link} #affiliate\nDisclosure: This post contains affiliate links, which may earn us a commission at no extra cost to you."
+
             url = f"{self.base_url}/pins"
             payload = {
                 "board_id": board_id,
                 "title": title,
                 "description": description,
                 "media_source": {"source_type": "image_url", "url": image_url},
+                "link": (
+                    affiliate_link if affiliate_link else None
+                ),  # Set destination link
             }
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             pin_id = response.json().get("id")
+            print(f"Created pin {pin_id} for trend: {trend}")
             return pin_id
         except requests.RequestException as e:
-            print(f"Error creating pin: {e}")
+            print(
+                f"Error creating pin: {e.response.status_code if e.response else 'No response'} - {e.response.json() if e.response else str(e)}"
+            )
             return ""
 
     def get_pin_title(self, trend: str) -> str:
-        prompt = f"Create a pinterest title about '{trend}' ideas that is SEO friendly and time-agnostic, respond the title only."
-        response = self.llm_service.generate_text(prompt)
-        return response
+        """
+        Generates an SEO-friendly pin title using LlmService.
+        """
+        prompt = f"Create a Pinterest title about '{trend}' ideas that is SEO friendly, time-agnostic, and includes an affiliate disclosure (e.g., #ad), respond the title only."
+        try:
+            response = self.llm_service.generate_text(prompt)
+            return response
+        except Exception as e:
+            print(f"Error generating title: {e}")
+            return f"{trend} Ideas #ad"
 
     def get_pin_description(self, title: str) -> str:
-        prompt = f"Create a pinterest description for this title that is SEO friendly and time-agnostic, respond the description only: '{title}'"
-        response = self.llm_service.generate_text(prompt)
-        return response
+        """
+        Generates an SEO-friendly pin description using LlmService.
+        """
+        prompt = f"Create a Pinterest description for this title that is SEO friendly, time-agnostic, and suitable for affiliate marketing, respond the description only: '{title}'"
+        try:
+            response = self.llm_service.generate_text(prompt)
+            return response
+        except Exception as e:
+            print(f"Error generating description: {e}")
+            return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!"

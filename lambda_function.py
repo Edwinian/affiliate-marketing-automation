@@ -1,11 +1,12 @@
 import time
 from datetime import datetime, timedelta, timezone
+from channel_service import ChannelService
 from media_service import MediaService
 from pinterest_service import PinterestService
+from wordpress_service import WordpressService
 
 
 def lambda_handler(event, context):
-    # Initialize PinterestService
     pinterest_service = PinterestService()
     trends = pinterest_service.get_trends()
     trend_media_map: dict[str, MediaService] = {}
@@ -18,27 +19,36 @@ def lambda_handler(event, context):
     # Repeat pin creation for 10 minutes (in HKT, adjusted to UTC for Lambda)
     start_time = datetime.now(timezone.utc)
     end_time = start_time + timedelta(minutes=10)
-    pin_count = 0
+    channels: list[ChannelService] = [PinterestService(), WordpressService()]
+    create_count = {channel.__class__.__name__: 0 for channel in channels}
 
     while datetime.now(timezone.utc) < end_time:
         for trend in trends:
-            image_url = trend_media_map[trend].get_image_url()
+            for channel in channels:
+                try:
+                    image_url = trend_media_map[trend].get_image_url()
 
-            if not image_url:
-                print(f"No Pinterest image found for trend: {trend}")
-                continue  # Skip to next trend
+                    if not image_url:
+                        print(f"No image found for trend: {trend}")
+                        break  # Skip to next trend
 
-            # Create pin
-            pin_id = pinterest_service.create_pin(image_url=image_url, trend=trend)
+                    content_id = channel.create(
+                        image_url=image_url, trend=trend, affiliate_link=""
+                    )
 
-            if pin_id:
-                pin_count += 1
-                print(f"Created pin {pin_id} for trend: {trend}")
-            else:
-                print(f"Failed to create pin for trend: {trend}")
-
-            # Respect Pinterest and Pexels API rate limits, delay to prevent hitting rate limits
-            time.sleep(1)
+                    if content_id:
+                        print(f"Created pin {content_id} for {trend}")
+                        create_count[channel.__class__.__name__] += 1
+                    else:
+                        print(
+                            f"Failed to create content for {trend} on {channel.__class__.__name__}"
+                        )
+                        continue
+                except Exception as e:
+                    print(
+                        f"Error creating content for {trend} on {channel.__class__.__name__}: {e}"
+                    )
+                    continue
 
         # Short delay between cycles to avoid overwhelming APIs
         time.sleep(2)
@@ -52,7 +62,10 @@ def lambda_handler(event, context):
             print("No more images available for any trend.")
             break
 
-    return {"statusCode": 200, "body": f"Created {pin_count} pins in 10 minutes."}
+    message = ". ".join(
+        f"{channel} create count: {count}" for channel, count in create_count.items()
+    )
+    return {"statusCode": 200, "body": f"{message}"}
 
 
 # Local test
