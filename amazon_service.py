@@ -12,7 +12,7 @@ class AmazonService:
 
     def __init__(self, query: str, limit: int = 10):
         self.query = query
-        self.limit = min(limit, 10)  # Amazon PA API allows max 10 items per request
+        self.limit = limit
         self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
     def fetch_affiliate_links(self):
@@ -21,7 +21,9 @@ class AmazonService:
             response = self.amazon.search_items(
                 keywords=self.query,
                 search_index="All",  # Broad search across all categories
-                item_count=self.limit,  # Fetch up to limit items
+                item_count=min(
+                    self.limit, 10
+                ),  # Amazon PA API allows max 10 items per request
             )
             self.affiliate_links = []
 
