@@ -1,5 +1,6 @@
 import time
 from datetime import datetime, timedelta, timezone
+from amazon_service import AmazonService
 from channel_service import ChannelService
 from media_service import MediaService
 from pinterest_service import PinterestService
@@ -11,10 +12,14 @@ def lambda_handler(event, context):
     # trends = pinterest_service.get_trends()
     trends = ["anime"]
     trend_media_map: dict[str, MediaService] = {}
+    trend_amazon_map: dict[str, AmazonService] = {}
 
     # Fetch images for each trend
     for trend in trends:
+        amazon_service = AmazonService(query=trend)
         media_service = MediaService(query=trend)
+
+        trend_amazon_map[trend] = amazon_service
         trend_media_map[trend] = media_service
 
     # Repeat content creation for 10 minutes (in HKT, adjusted to UTC for Lambda)
@@ -25,11 +30,11 @@ def lambda_handler(event, context):
 
     while datetime.now(timezone.utc) < end_time:
         for trend in trends:
-            # TODO: query for an affiliate link based on trend
-            affiliate_link = "https://example.com/affiliate-link"
-
             for channel in channels:
                 try:
+                    # TODO: query for an affiliate link based on trend
+                    # affiliate_link = trend_amazon_map[trend].get_affiliate_link()
+                    affiliate_link = "https://example.com/affiliate-link"
                     image_url = trend_media_map[trend].get_image_url()
 
                     if not image_url:

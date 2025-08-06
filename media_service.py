@@ -13,9 +13,9 @@ class MediaService:
     def __init__(self, query: str, size: str = "original", limit: int = 80):
         self.query = query
         self.size = size
-        self.limit = min(limit, 80)  # Ensure limit does not exceed 80
+        self.limit = limit
 
-    def fetch_image_urls(self) -> List[str]:
+    def fetch_image_urls(self):
         def fetch_page(
             url: str = "https://api.pexels.com/v1/search",
             params: Optional[dict] = None,
@@ -35,7 +35,7 @@ class MediaService:
                     src = photo.get("src", {})
                     url = src.get(self.size)
 
-                    if url:
+                    if url and url not in self.image_urls:
                         self.image_urls.append(url)
 
                 # Check for next_page and recurse
@@ -47,13 +47,12 @@ class MediaService:
                 raise Exception(f"Pexels API error: {str(e)}")
 
         # Initial request parameters
-        params = {"query": self.query, "per_page": self.limit}
+        # Ensure limit does not exceed 80
+        params = {"query": self.query, "per_page": min(self.limit, 80)}
         fetch_page(params=params)
 
     def get_image_url(self) -> Optional[str]:
-        if not self.image_urls or self.used_image_count >= len(self.image_urls) - 1:
-            self.image_urls = []
-            self.used_image_count = 0
+        if self.used_image_count >= len(self.image_urls):
             self.fetch_image_urls()
 
         image_url = self.image_urls[self.used_image_count] if self.image_urls else None
