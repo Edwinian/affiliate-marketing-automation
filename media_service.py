@@ -80,3 +80,46 @@ class MediaService:
             self.used_image_count += 1
             return image_url
         return None
+
+    def add_affiliate_link(self, affiliate_link: str) -> None:
+        """
+        Write an affiliate link to used_links.txt file in the same directory.
+
+        Args:
+            affiliate_link (str): The affiliate link to record
+        """
+        try:
+            file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
+            with open(file_path, "a", encoding="utf-8") as file:
+                file.write(f"{affiliate_link}\n")
+            print(f"Affiliate link recorded: {affiliate_link}")
+        except Exception as e:
+            print(f"Error writing affiliate link to file: {str(e)}")
+
+    def check_affiliate_link(self, affiliate_link: str) -> bool:
+        """
+        Check if an affiliate link already exists in used_links.txt file.
+
+        Args:
+            affiliate_link (str): The affiliate link to check
+
+        Returns:
+            bool: True if the link exists in the file, False otherwise
+        """
+        try:
+            file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
+
+            # Check if file exists first
+            if not os.path.exists(file_path):
+                return False
+
+            # Read all links from the file
+            with open(file_path, "r", encoding="utf-8") as file:
+                existing_links = file.read().splitlines()
+
+            # Check if the affiliate link exists in the list (case-sensitive)
+            return affiliate_link in existing_links
+
+        except Exception as e:
+            print(f"Error reading affiliate links file: {str(e)}")
+            return False
