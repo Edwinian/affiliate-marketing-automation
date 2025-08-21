@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class AffiliateLink:
+class AmazonAffiliateLink:
     url: str
     review_count: int
     category: str

@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from amazon_paapi import AmazonApi
 
 from affiliate_program_service import AffiliateProgramService
-from all_types import AffiliateLink
+from all_types import AmazonAffiliateLink
 from llm_service import LlmService
 from media_service import MediaService
 
@@ -18,10 +18,10 @@ class AmazonService(AffiliateProgramService):
     def execute_cron(self) -> None:
         return
 
-    def get_affiliate_link(self) -> AffiliateLink:
+    def get_affiliate_link(self) -> AmazonAffiliateLink:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews.
-        Returns an AffiliateLink dataclass with the URL, review count, and product category.
+        Returns an AmazonAffiliateLink dataclass with the URL, review count, and product category.
         """
 
         try:
@@ -64,7 +64,7 @@ class AmazonService(AffiliateProgramService):
                     # Update best link if this item has more reviews
                     if num_reviews > max_reviews:
                         max_reviews = num_reviews
-                        best_link = AffiliateLink(
+                        best_link = AmazonAffiliateLink(
                             url=affiliate_link,
                             review_count=num_reviews,
                             category=product_category,
@@ -77,5 +77,5 @@ class AmazonService(AffiliateProgramService):
         except Exception as e:
             print(f"Error fetching affiliate link: {e}")
 
-        # Return default AffiliateLink if no valid link is found or an error occurs
-        return AffiliateLink(url="", review_count=0, category="Unknown")
+        # Return default AmazonAffiliateLink if no valid link is found or an error occurs
+        return AmazonAffiliateLink(url="", review_count=0, category="Unknown")
