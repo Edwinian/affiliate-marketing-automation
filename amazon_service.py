@@ -1,81 +1,81 @@
-import os
-from typing import List, Optional
 from dotenv import load_dotenv
 from amazon_paapi import AmazonApi
-import requests
 
 from affiliate_program_service import AffiliateProgramService
+from all_types import AffiliateLink
+from llm_service import LlmService
 from media_service import MediaService
 
 load_dotenv()
 
 
 class AmazonService(AffiliateProgramService):
-    affiliate_links: List[str] = []
-    used_link_count: int = 0
-
-    def __init__(self, query: str, limit: int = 10):
+    def __init__(self):
+        self.llm_service = LlmService()
         self.media_service = MediaService()
-        self.query = query
-        self.limit = limit
         self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
-
-    def fetch_affiliate_links(self):
-        """
-        Fetch affiliate links from Amazon PA API with pagination.
-        """
-        self.affiliate_links = []  # Clear existing links
-        self.used_link_count = 0  # Reset counter
-        current_count = 0
-        item_page = 1  # Start with page 1
-
-        while current_count < self.limit:
-            try:
-                response = self.amazon.search_items(
-                    keywords=self.query,
-                    search_index="All",
-                    item_count=1,
-                    item_page=item_page,  # Pagination parameter
-                    resources=["ItemInfo.Title", "Offers.Listings.Price"],
-                )
-
-                if response.items:
-                    for item in response.items:
-                        if (
-                            item.detail_page_url
-                            and item.detail_page_url not in self.affiliate_links
-                        ):
-                            self.affiliate_links.append(item.detail_page_url)
-                            current_count += 1
-                            if current_count >= self.limit:
-                                break
-
-                # Check for next page (NextToken)
-                next_page = getattr(response.search_result, "next_token", None)
-                if not next_page or item_page >= 10:  # Amazon limits to 10 pages
-                    break
-                item_page += 1
-            except requests.RequestException as e:
-                print(f"Amazon API error for query '{self.query}': {str(e)}")
-                break
-            except Exception as e:
-                print(f"Error querying Amazon API for query '{self.query}': {e}")
-                break
-
-        if not self.affiliate_links:
-            print(f"No products found for query: {self.query}")
-
-    def get_affiliate_link(self) -> Optional[str]:
-        if not self.affiliate_links or self.used_link_count >= len(
-            self.affiliate_links
-        ):
-            self.fetch_affiliate_links()
-
-        if self.affiliate_links:
-            affiliate_link = self.affiliate_links[self.used_link_count]
-            self.used_link_count += 1
-            return affiliate_link
-        return None
 
     def execute_cron(self) -> None:
         return
+
+    def get_affiliate_link(self) -> AffiliateLink:
+        """
+        Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews.
+        Returns an AffiliateLink dataclass with the URL, review count, and product category.
+        """
+
+        try:
+            keywords = self.llm_service.generate_text(
+                f"what is the best amazon affiliate product to promote nowadays? Give me keywords to search and return keywords only."
+            )
+            response = self.amazon.search_items(
+                keywords=keywords,
+                search_index="All",
+                item_count=10,
+                item_page=1,  # Pagination parameter
+                resources=[
+                    "ItemInfo.Title",
+                    "Offers.Listings.Price",
+                    "ItemInfo.CustomerReviews",
+                    "ItemInfo.Classifications",
+                ],
+            )
+
+            if response.items:
+                # Initialize variables to track the link with the most reviews
+                best_link = None
+                max_reviews = 0
+
+                for item in response.items:
+                    affiliate_link = item.detail_page_url
+
+                    if not affiliate_link or self.media_service.is_affiliate_link_used(
+                        affiliate_link
+                    ):
+                        continue
+
+                    num_reviews = item.customer_reviews.count or 0
+                    product_category = (
+                        item.item_info.classifications.product_group.display_value
+                        if item.item_info.classifications
+                        else "Unknown"
+                    )
+
+                    # Update best link if this item has more reviews
+                    if num_reviews > max_reviews:
+                        max_reviews = num_reviews
+                        best_link = AffiliateLink(
+                            url=affiliate_link,
+                            review_count=num_reviews,
+                            category=product_category,
+                        )
+
+                if best_link:
+                    self.media_service.add_affiliate_link(best_link.url)
+                    return best_link
+
+        except Exception as e:
+            print(f"Error fetching affiliate link: {e}")
+
+        # Return default AffiliateLink if no valid link is found or an error occurs
+        return AffiliateLink(url="", review_count=0, category="Unknown")

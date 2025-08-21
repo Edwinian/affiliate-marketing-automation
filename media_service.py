@@ -71,7 +71,7 @@ class MediaService:
         except Exception as e:
             print(f"Error writing affiliate link to file: {str(e)}")
 
-    def is_affiliate_link_used(self, affiliate_link: str) -> bool:
+    def is_affiliate_link_used(self, affiliate_link: Optional[str] = None) -> bool:
         """
         Check if an affiliate link already exists in used_links.txt file.
 
@@ -81,6 +81,10 @@ class MediaService:
         Returns:
             bool: True if the link exists in the file, False otherwise
         """
+
+        if not affiliate_link:
+            return False
+
         try:
             file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
 
