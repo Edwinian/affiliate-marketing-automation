@@ -8,6 +8,16 @@ from wordpress_service import WordpressService
 
 
 def lambda_handler(event, context):
+    affiliate_programs = [
+        AmazonService(query="trending products"),
+    ]
+
+    for program in affiliate_programs:
+        try:
+            program.execute_cron()
+        except Exception as e:
+            print(f"Error executing cron for {program.__class__.__name__}: {e}")
+
     pinterest_service = PinterestService()
     # trends = pinterest_service.get_trends()
     trends = [

@@ -1,85 +1,60 @@
 import os
+from typing import Optional
 import requests
-from typing import List, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
 class MediaService:
-    image_urls: List[str] = []
-    used_image_count: int = 0
+    fetched_image_urls = []
 
-    def __init__(self, query: str, size: str = "original", limit: int = 80):
-        self.query = query
-        self.size = size
-        self.limit = min(limit, 80)  # Pexels API caps per_page at 80
-        self.fetch_image_urls()  # Fetch initial images during initialization
-
-    def fetch_image_urls(self):
+    def get_image_urls(
+        self,
+        query: Optional[str] = None,
+        size="original",
+        limit: int = 1,
+        next_page: Optional[str] = None,
+    ) -> Optional[list[str]]:
         """
         Fetch image URLs from Pexels API with pagination.
         """
-        self.image_urls = []  # Clear existing URLs to avoid duplicates
-        self.used_image_count = 0  # Reset counter
-        current_count = 0
         url = "https://api.pexels.com/v1/search"
-        params = {"query": self.query, "per_page": min(self.limit, 80)}
+        params = {"query": query, "per_page": 80}
 
-        while current_count < self.limit:
-            try:
-                response = requests.get(
+        try:
+            response = (
+                requests.get(url=next_page)
+                if next_page
+                else requests.get(
                     url,
                     headers={"Authorization": os.getenv("PEXELS_API_KEY")},
                     params=params,
                 )
-                response.raise_for_status()
-                data = response.json()
+            )
+            response.raise_for_status()
+            data = response.json()
 
-                # Extract image URLs
-                for photo in data.get("photos", []):
-                    src = photo.get("src", {})
-                    image_url = src.get(self.size)
-                    if image_url and image_url not in self.image_urls:
-                        self.image_urls.append(image_url)
-                        current_count += 1
-                        if current_count >= self.limit:
-                            break
+            # Extract image URLs
+            for photo in data.get("photos", []):
+                if len(self.fetched_image_urls) >= limit:
+                    return self.fetched_image_urls[:limit]
 
-                print(
-                    f"fetch_image_urls count for {self.query}: ", len(self.image_urls)
-                )
+                src = photo.get("src", {})
+                image_url = src.get(size)
 
-                # Check for next page
-                next_page = data.get("next_page")
-                if not next_page:
-                    break
-                url = next_page
-                params = (
-                    None  # Clear params for subsequent requests (uses next_page URL)
-                )
-            except requests.RequestException as e:
-                print(f"Pexels API error for query '{self.query}': {str(e)}")
-                break
+                if image_url:
+                    self.fetched_image_urls.append(image_url)
 
-        if not self.image_urls:
-            print(f"No images found for query: {self.query}")
+            # Check for next page
+            next_page = data.get("next_page")
 
-    def get_image_url(self) -> Optional[str]:
-        """
-        Return a single image URL. Fetch new images if the list is empty or exhausted.
+            if next_page and len(self.fetched_image_urls) < limit:
+                return self.get_image_urls(next_page=next_page)
 
-        Returns:
-            Optional[str]: A single image URL or None if none available.
-        """
-        if not self.image_urls or self.used_image_count >= len(self.image_urls):
-            self.fetch_image_urls()
-
-        if self.image_urls:
-            image_url = self.image_urls[self.used_image_count]
-            self.used_image_count += 1
-            return image_url
-        return None
+            return self.fetched_image_urls[:limit]
+        except requests.RequestException as e:
+            print(f"Pexels API error for query '{query}': {str(e)}")
 
     def add_affiliate_link(self, affiliate_link: str) -> None:
         """
@@ -96,7 +71,7 @@ class MediaService:
         except Exception as e:
             print(f"Error writing affiliate link to file: {str(e)}")
 
-    def check_affiliate_link(self, affiliate_link: str) -> bool:
+    def is_affiliate_link_used(self, affiliate_link: str) -> bool:
         """
         Check if an affiliate link already exists in used_links.txt file.
 

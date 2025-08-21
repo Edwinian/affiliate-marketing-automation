@@ -4,14 +4,18 @@ from dotenv import load_dotenv
 from amazon_paapi import AmazonApi
 import requests
 
+from affiliate_program_service import AffiliateProgramService
+from media_service import MediaService
+
 load_dotenv()
 
 
-class AmazonService:
+class AmazonService(AffiliateProgramService):
     affiliate_links: List[str] = []
     used_link_count: int = 0
 
     def __init__(self, query: str, limit: int = 10):
+        self.media_service = MediaService()
         self.query = query
         self.limit = limit
         self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
@@ -30,10 +34,11 @@ class AmazonService:
                 response = self.amazon.search_items(
                     keywords=self.query,
                     search_index="All",
-                    item_count=min(self.limit - current_count, 10),
+                    item_count=1,
                     item_page=item_page,  # Pagination parameter
                     resources=["ItemInfo.Title", "Offers.Listings.Price"],
                 )
+
                 if response.items:
                     for item in response.items:
                         if (
@@ -71,3 +76,6 @@ class AmazonService:
             self.used_link_count += 1
             return affiliate_link
         return None
+
+    def execute_cron(self) -> None:
+        return
