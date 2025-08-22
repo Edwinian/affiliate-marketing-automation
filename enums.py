@@ -28,3 +28,8 @@ class StrEnum(str, Enum):
 class CustomLinksKey(StrEnum):
     DEFAULT = "default_affiliate_links"
     AMAZON = "amazon_affiliate_links"
+
+
+class LlmErrorPrompt(StrEnum):
+    QUOTA_EXCEEDED = "insufficient credits"
+    LENGTH_EXCEEDED = "prompt length exceeded"

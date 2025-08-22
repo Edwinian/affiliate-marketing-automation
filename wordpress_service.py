@@ -4,8 +4,9 @@ import requests
 from typing import List, Dict
 import base64
 
-from all_types import WordpressPost, WordpressCategory
+from all_types import AffiliateLink, WordpressPost, WordpressCategory, WordpressTag
 from channel_service import ChannelService
+from enums import LlmErrorPrompt
 from llm_service import LlmService
 
 load_dotenv()
@@ -13,6 +14,7 @@ load_dotenv()
 
 class WordpressService(ChannelService):
     POSTS: List[WordpressPost] = []
+    TAGS: List[WordpressTag] = []
 
     def __init__(self):
         """Initialize WordpressService with WordPress API credentials."""
@@ -195,18 +197,12 @@ class WordpressService(ChannelService):
             print(f"Error creating navbar: {e}")
             return '<nav class="dynamic-nav"><ul><li>Error generating navbar</li></ul></nav>'
 
-    def create(self, image_url: str, trend: str, affiliate_link: str = "") -> str:
+    def create(self, image_url: str, affiliate_link: AffiliateLink) -> str:
         try:
-            title = self.get_post_title(trend)
-            content = self.get_post_content(title, trend, affiliate_link)
+            title = self.get_post_title(affiliate_link)
+            content = self.get_post_content(title, affiliate_link)
             featured_media_id = self.upload_feature_image(image_url) if image_url else 0
-
-            tag_names = [trend.lower(), "affiliate", "ad"]
-            tag_ids = []
-            for tag_name in tag_names:
-                tag_id = self.get_or_create_tag(tag_name)
-                if tag_id:
-                    tag_ids.append(tag_id)
+            tag_ids = self.get_similar_tag_ids(title) or self.create_tags(title)
 
             url = f"{self.api_url}/posts"
             payload = {
@@ -214,7 +210,7 @@ class WordpressService(ChannelService):
                 "content": content,
                 "status": "publish",
                 "featured_media": featured_media_id,
-                "categories": [],
+                "categories": affiliate_link.categories,
                 "tags": tag_ids,
             }
             response = requests.post(url, headers=self.headers, json=payload)
@@ -249,48 +245,168 @@ class WordpressService(ChannelService):
             )
             return 0
 
-    def get_or_create_tag(self, tag_name: str) -> int:
+    def get_tags(self, search: str = "") -> List[WordpressTag]:
+        """
+        Retrieve all tags from WordPress.
+        Returns a list of WordpressTag objects.
+        """
+        if self.TAGS:
+            return self.TAGS
+
         try:
-            response = requests.get(
-                f"{self.api_url}/tags",
-                headers=self.headers,
-                params={"search": tag_name},
-            )
-            response.raise_for_status()
-            tags = response.json()
-            for tag in tags:
-                if tag["name"].lower() == tag_name.lower():
-                    return tag["id"]
-            response = requests.post(
-                f"{self.api_url}/tags", headers=self.headers, json={"name": tag_name}
-            )
-            response.raise_for_status()
-            return response.json().get("id", 0)
+            tags = []
+            page = 1
+            per_page = 100
+
+            while True:
+                print(f"Fetching page {page} of {per_page} tags...")
+                url = f"{self.api_url}/tags"
+                params = {"page": page, "per_page": per_page, "search": search}
+                response = requests.get(url, headers=self.headers, params=params)
+                response.raise_for_status()
+                page_tags = response.json()
+
+                if not page_tags:
+                    break
+
+                for tag in page_tags:
+                    tag_name = tag.get("name", "")
+                    tag_id = tag.get("id", 0)
+                    if tag_name and tag_id:
+                        tags.append(WordpressTag(id=tag_id, name=tag_name))
+
+                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
+                if page >= total_pages:
+                    break
+                page += 1
+
+            self.TAGS = tags
+            return tags
+
         except requests.RequestException as e:
             print(
-                f"Error getting/creating tag {tag_name}: {e}, Response: {e.response.text if e.response else 'No response'}"
+                f"Error retrieving tags: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
-            return 0
+            return []
+        except ValueError as e:
+            print(f"Error parsing tags response: {e}")
+            return []
 
-    def get_post_title(self, trend: str) -> str:
+    def get_similar_tag_ids(
+        self, title: str, tags: List[WordpressTag] = []
+    ) -> List[int]:
         try:
-            prompt = f"Create a WordPress blog post title about '{trend}' ideas that is SEO-friendly and time-agnostic, respond with the title only."
+            all_tags = tags or self.get_tags()
+
+            if not all_tags:
+                return []
+
+            no_similar_prompt = "No similar tags found."
+            similar_tags = self.llm_service.generate_text(
+                f"Based on the title '{title}', find 3 similar tags from the following list: {all_tags}. Return the IDs of the similar tags as a list separated by comma to be split into a list later on. If no similar tags are found, return '{no_similar_prompt}'."
+            )
+            tag_ids_str = similar_tags.split(",")
+            similar_tags_found = no_similar_prompt not in similar_tags
+
+            if (
+                any([not tag_id.isdigit() for tag_id in tag_ids_str])
+                and similar_tags_found
+            ):
+                print(
+                    f"Invalid tag IDs found in response: {tag_ids_str}. Returning empty list."
+                )
+                return []
+
+            # LLM prompt length limit may be triggered, retry with fewer tags
+            if LlmErrorPrompt.LENGTH_EXCEEDED in similar_tags:
+                if len(all_tags) > 1:
+                    trim_count = min(5, len(all_tags) - 1)
+                    return self.get_similar_tag_ids(
+                        title=title, tags=all_tags[:-trim_count]
+                    )
+                else:
+                    return []
+
+            return [int(tag_id) for tag_id in tag_ids_str] if similar_tags_found else []
+        except Exception as e:
+            print(f"Error finding similar tags: {e}")
+            return []
+
+    def create_tags(self, title: str) -> list[int]:
+        try:
+            tag_ids = []
+            new_tags = self.llm_service.generate_text(
+                f"Create 3 wordpress blog tags based on this title: {title}, return the tags only, separated by commas to be split into a list later on."
+            ).split(",")
+
+            for new_tag in new_tags:
+                response = requests.post(
+                    f"{self.api_url}/tags", headers=self.headers, json={"name": new_tag}
+                )
+                response.raise_for_status()
+                tag_id = response.json().get("id", 0)
+                tag_ids.append(tag_id)
+
+            return tag_ids
+        except requests.RequestException as e:
+            print(
+                f"Error creating tag {title}: {e}, Response: {e.response.text if e.response else 'No response'}"
+            )
+            return []
+
+    def get_post_title(self, affiliate_link: AffiliateLink) -> str:
+        try:
+            prompt = f"I make a website about {','.join(affiliate_link.categories)}. Give me one blog title based on {affiliate_link.url} that is SEO friendly and time-agnostic, return the blog title only."
             return self.llm_service.generate_text(prompt)
         except Exception as e:
             print(f"Error generating title: {e}")
-            return f"Top {trend} Trends to Explore #ad"
+            return f"{affiliate_link.categories[0]}"
 
-    def get_post_content(self, title: str, trend: str, affiliate_link: str) -> str:
+    def get_body_introduction(self, title: str) -> str:
         try:
-            prompt = f"Create a WordPress blog post body for the title '{title}' that is SEO-friendly and time-agnostic. Respond with the content only (500-700 words)."
-            content = self.llm_service.generate_text(prompt)
+            prompt = f"In 50-80 words, give me a compelling introduction for the title {title}, return the introduction only"
+            return self.llm_service.generate_text(prompt)
+        except Exception as e:
+            print(f"Error generating introduction: {e}")
+            return ""
 
-            if affiliate_link:
-                content += f"\n\n<a href='{affiliate_link}' target='_blank'>Shop {trend} Now #ad</a>\n\nDisclosure: This post contains affiliate links."
+    def get_body_paragraph(self, intro: str, paragraphs: list[str] = []) -> str:
+        try:
+            prompt = f"In 100-150 words, give me a paragraph with an H1 bolded subtitile based on this introduction: {intro} and preceding paragraph(s): {paragraphs}, return the paragraph only"
+            return self.llm_service.generate_text(prompt)
+        except Exception as e:
+            print(f"Error generating body paragraph: {e}")
+            return ""
+
+    def get_body_conclusion(self, intro: str, paragraphs: list[str]) -> str:
+        try:
+            prompt = f"In 50-80 words, give me a conclusion for the blog post with the following introduction: {intro} and body paragraphs: {paragraphs}. Return the conclusion only."
+            return self.llm_service.generate_text(prompt)
+        except Exception as e:
+            print(f"Error generating body conclusion: {e}")
+            return ""
+
+    def get_post_content(self, title: str, affiliate_link: AffiliateLink) -> str:
+        try:
+            intro = self.get_body_introduction(title)
+            paragraphs = []
+
+            for i in range(3):
+                print(f"Generating paragraph {i+1}...")
+                paragraph = self.get_body_paragraph(intro, paragraphs)
+                paragraphs.append(paragraph)
+
+            conclusion = self.get_body_conclusion(intro, paragraphs)
+            content = f"{intro}\n\n{''.join(paragraphs)}\n\n{conclusion}"
+
+            if affiliate_link.url:
+                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now #ad</a>\n\n{self.DISCLOSURE}'
+
+            ##TODO: Add external links to redirect to related posts within the website
+
             return content
         except Exception as e:
             print(f"Error generating content: {e}")
-            return f"Explore the latest {trend} trends with our curated selection! Check out top products to inspire your next purchase. <a href='{affiliate_link}' target='_blank'>Shop Now #ad</a>\n\nDisclosure: This post contains affiliate links."
 
 
 if __name__ == "__main__":

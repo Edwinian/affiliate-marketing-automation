@@ -9,7 +9,7 @@ load_dotenv()
 class MediaService:
     fetched_image_urls = []
 
-    def get_image_urls(
+    def fetch_image_urls(
         self,
         query: Optional[str] = None,
         size="original",
@@ -38,7 +38,7 @@ class MediaService:
             # Extract image URLs
             for photo in data.get("photos", []):
                 if len(self.fetched_image_urls) >= limit:
-                    return self.fetched_image_urls[:limit]
+                    return
 
                 src = photo.get("src", {})
                 image_url = src.get(size)
@@ -50,11 +50,23 @@ class MediaService:
             next_page = data.get("next_page")
 
             if next_page and len(self.fetched_image_urls) < limit:
-                return self.get_image_urls(next_page=next_page)
-
-            return self.fetched_image_urls[:limit]
+                return self.fetch_image_urls(next_page=next_page)
         except requests.RequestException as e:
             print(f"Pexels API error for query '{query}': {str(e)}")
+
+    def get_image_urls(
+        self,
+        query: Optional[str] = None,
+        size="original",
+        limit: int = 1,
+    ) -> Optional[list[str]]:
+        if len(self.fetched_image_urls) < limit:
+            self.fetch_image_urls(query=query, size=size, limit=limit)
+
+        used_count = min(limit, len(self.fetched_image_urls))
+        image_urls = self.fetched_image_urls[:used_count]
+        self.fetched_image_urls = self.fetched_image_urls[used_count:]
+        return image_urls
 
     def add_affiliate_link(self, affiliate_link: str) -> None:
         """

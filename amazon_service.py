@@ -71,7 +71,7 @@ class AmazonService(AffiliateProgramService):
                         best_link = AffiliateLink(
                             url=affiliate_link,
                             review_count=num_reviews,
-                            category=product_category,
+                            categories=[product_category],
                         )
 
                 if best_link:
@@ -82,4 +82,4 @@ class AmazonService(AffiliateProgramService):
             print(f"Error fetching affiliate link: {e}")
 
         # Return default AffiliateLink if no valid link is found or an error occurs
-        return AffiliateLink(url="", review_count=0, category="Unknown")
+        return AffiliateLink(url="", review_count=0, categories=["Unknown"])

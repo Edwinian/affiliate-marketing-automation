@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 
 class ChannelService(ABC):
+    DISCLOSURE = "Disclosure: At no cost to you, I may earn a small commission from qualifying purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
+
     @abstractmethod
     def create(self, image_url: str, trend: str, affiliate_link: str = "") -> str:
         """

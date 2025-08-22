@@ -5,7 +5,7 @@ from typing import List, Optional
 @dataclass
 class AffiliateLink:
     url: str
-    category: str
+    categories: list[str]
     review_count: Optional[int] = 0
 
 
@@ -25,3 +25,9 @@ class WordpressPost:
     date: str
     status: str
     categories: List[WordpressCategory]
+
+
+@dataclass
+class WordpressTag:
+    id: int
+    name: str
