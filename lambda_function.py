@@ -1,22 +1,34 @@
 import time
 from datetime import datetime, timedelta, timezone
+from affiliate_program_service import AffiliateProgramService
+from all_types import AffiliateLink
 from amazon_service import AmazonService
 from channel_service import ChannelService
+from enums import CustomLinksKey
 from media_service import MediaService
 from pinterest_service import PinterestService
 from wordpress_service import WordpressService
 
 
 def lambda_handler(event, context):
-    affiliate_programs = [
+    custom_links_map: dict[str, list[AffiliateLink]] = {CustomLinksKey.AMAZON: []}
+    affiliate_programs: list[AffiliateProgramService] = [
         AmazonService(query="trending products"),
     ]
 
     for program in affiliate_programs:
         try:
-            program.execute_cron()
+            start_time = time.time()
+            name = program.__class__.__name__
+            custom_links = custom_links_map.get(program.CUSTOM_LINKS_KEY, [])
+
+            program.execute_cron(custom_links=custom_links)
+
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(f"Finished execution of {name}: {execution_time:.2f} seconds")
         except Exception as e:
-            print(f"Error executing cron for {program.__class__.__name__}: {e}")
+            print(f"Error executing cron for {name}: {e}")
 
     pinterest_service = PinterestService()
     # trends = pinterest_service.get_trends()

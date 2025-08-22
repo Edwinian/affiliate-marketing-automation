@@ -1,8 +1,10 @@
+from typing import Optional
 from dotenv import load_dotenv
 from amazon_paapi import AmazonApi
 
 from affiliate_program_service import AffiliateProgramService
-from all_types import AmazonAffiliateLink
+from all_types import AffiliateLink
+from enums import CustomLinksKey
 from llm_service import LlmService
 from media_service import MediaService
 
@@ -10,18 +12,20 @@ load_dotenv()
 
 
 class AmazonService(AffiliateProgramService):
+    CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
+
     def __init__(self):
         self.llm_service = LlmService()
         self.media_service = MediaService()
         self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
-    def execute_cron(self) -> None:
-        return
+    def execute_cron(self, custom_links: Optional[list[AffiliateLink]] = []) -> None:
+        affiliate_links = custom_links or [self.get_affiliate_link()]
 
-    def get_affiliate_link(self) -> AmazonAffiliateLink:
+    def get_affiliate_link(self) -> AffiliateLink:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews.
-        Returns an AmazonAffiliateLink dataclass with the URL, review count, and product category.
+        Returns an AffiliateLink dataclass with the URL, review count, and product category.
         """
 
         try:
@@ -64,7 +68,7 @@ class AmazonService(AffiliateProgramService):
                     # Update best link if this item has more reviews
                     if num_reviews > max_reviews:
                         max_reviews = num_reviews
-                        best_link = AmazonAffiliateLink(
+                        best_link = AffiliateLink(
                             url=affiliate_link,
                             review_count=num_reviews,
                             category=product_category,
@@ -77,5 +81,5 @@ class AmazonService(AffiliateProgramService):
         except Exception as e:
             print(f"Error fetching affiliate link: {e}")
 
-        # Return default AmazonAffiliateLink if no valid link is found or an error occurs
-        return AmazonAffiliateLink(url="", review_count=0, category="Unknown")
+        # Return default AffiliateLink if no valid link is found or an error occurs
+        return AffiliateLink(url="", review_count=0, category="Unknown")

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
-class AmazonAffiliateLink:
+class AffiliateLink:
     url: str
-    review_count: int
     category: str
+    review_count: Optional[int] = 0
