@@ -3,6 +3,7 @@ from xai_sdk import Client
 from xai_sdk.chat import user
 from dotenv import load_dotenv
 
+from all_types import AffiliateLink
 from enums import LlmErrorPrompt
 
 load_dotenv()  # Loads the .env file

@@ -197,9 +197,8 @@ class WordpressService(ChannelService):
             print(f"Error creating navbar: {e}")
             return '<nav class="dynamic-nav"><ul><li>Error generating navbar</li></ul></nav>'
 
-    def create(self, image_url: str, affiliate_link: AffiliateLink) -> str:
+    def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
         try:
-            title = self.get_post_title(affiliate_link)
             content = self.get_post_content(title, affiliate_link)
             featured_media_id = self.upload_feature_image(image_url) if image_url else 0
             tag_ids = self.get_similar_tag_ids(title) or self.create_tags(title)
@@ -216,8 +215,8 @@ class WordpressService(ChannelService):
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             post_data = response.json()
-            post_url = post_data.get("link", "")
-            return post_url
+            id = post_data.get("id", "")
+            return id
         except (requests.RequestException, ValueError) as e:
             print(
                 f"Error creating post: {e}, Response: {e.response.text if e.response else 'No response'}"
@@ -395,14 +394,6 @@ class WordpressService(ChannelService):
                 f"Error creating tag {title}: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
             return []
-
-    def get_post_title(self, affiliate_link: AffiliateLink) -> str:
-        try:
-            prompt = f"I make a website about {','.join(affiliate_link.categories)}. Give me one blog title based on {affiliate_link.url} that is SEO friendly and time-agnostic, return the blog title only."
-            return self.llm_service.generate_text(prompt)
-        except Exception as e:
-            print(f"Error generating title: {e}")
-            return f"{affiliate_link.categories[0]}"
 
     def get_post_content(
         self, title: str, affiliate_link: AffiliateLink, paragraph_count: int = 3

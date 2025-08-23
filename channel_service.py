@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
 
+from all_types import AffiliateLink
+
 
 class ChannelService(ABC):
     DISCLOSURE = "Disclosure: At no cost to you, I may earn a small commission from qualifying purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
 
     @abstractmethod
-    def create(self, image_url: str, trend: str, affiliate_link: str = "") -> str:
+    def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
         """
         Creates content on the channel with the given image, trend, and optional affiliate link.
 

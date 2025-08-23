@@ -3,6 +3,7 @@ from typing import List
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
+from all_types import AffiliateLink
 from channel_service import ChannelService
 from llm_service import LlmService
 
@@ -89,24 +90,25 @@ class PinterestService(ChannelService):
             print(f"Error creating board section: {e}")
             return ""
 
-    def create(self, image_url: str, trend: str, affiliate_link: str = "") -> str:
+    def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
         """
-        Creates a pin on the specified board with the given image URL, trend, and optional affiliate link.
+        Creates a pin on the specified board with the given image URL, and optional affiliate link.
         Returns the pin ID.
         """
         try:
             board_id = self._get_board_id()
+
             if not board_id:
                 print("No valid board ID found.")
                 return ""
 
-            # Generate SEO-friendly title with affiliate disclosure
-            title = self.get_pin_title(trend + " #ad")
             # Include affiliate link in description if provided
             description = self.get_pin_description(title)
 
             if affiliate_link:
-                description += f"\nShop now: {affiliate_link} #affiliate\nDisclosure: This post contains affiliate links, which may earn us a commission at no extra cost to you."
+                description += (
+                    f"\nShop now: {affiliate_link.url} #affiliate\n{self.DISCLOSURE}"
+                )
 
             url = f"{self.base_url}/pins"
             payload = {
@@ -121,25 +123,13 @@ class PinterestService(ChannelService):
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             pin_id = response.json().get("id")
-            print(f"Created pin {pin_id} for trend: {trend}")
+            print(f"Created pin {pin_id}")
             return pin_id
         except requests.RequestException as e:
             print(
                 f"Error creating pin: {e.response.status_code if e.response else 'No response'} - {e.response.json() if e.response else str(e)}"
             )
             return ""
-
-    def get_pin_title(self, trend: str) -> str:
-        """
-        Generates an SEO-friendly pin title using LlmService.
-        """
-        prompt = f"Create a Pinterest title about '{trend}' ideas that is SEO friendly, time-agnostic, and includes an affiliate disclosure (e.g., #ad), respond the title only."
-        try:
-            response = self.llm_service.generate_text(prompt)
-            return response
-        except Exception as e:
-            print(f"Error generating title: {e}")
-            return f"{trend} Ideas #ad"
 
     def get_pin_description(self, title: str) -> str:
         """
