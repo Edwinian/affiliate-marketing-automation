@@ -17,7 +17,6 @@ class WordpressService(ChannelService):
     TAGS: List[WordpressTag] = []
 
     def __init__(self):
-        """Initialize WordpressService with WordPress API credentials."""
         self.api_url = os.getenv("WORDPRESS_API_URL")
         self.frontend_url = os.getenv("WORDPRESS_FRONTEND_URL")
         username = os.getenv("WORDPRESS_USERNAME")
@@ -42,7 +41,7 @@ class WordpressService(ChannelService):
             per_page = 100
 
             while True:
-                print(f"Fetching page {page} of {per_page} posts...")
+                self.logger.info(f"Fetching page {page} of {per_page} posts...")
                 url = f"{self.api_url}/posts"
                 params = {
                     "page": page,
@@ -90,12 +89,12 @@ class WordpressService(ChannelService):
             return posts
 
         except requests.RequestException as e:
-            print(
+            self.logger.error(
                 f"Error retrieving posts: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
             return []
         except ValueError as e:
-            print(f"Error parsing response: {e}")
+            self.logger.error(f"Error parsing response: {e}")
             return []
 
     def get_unique_categories(self) -> Dict[str, WordpressCategory]:
@@ -115,7 +114,7 @@ class WordpressService(ChannelService):
             return categories
 
         except Exception as e:
-            print(f"Error retrieving categories: {e}")
+            self.logger.error(f"Error retrieving categories: {e}")
             return {}
 
     def get_navbar_html(self) -> str:
@@ -194,7 +193,7 @@ class WordpressService(ChannelService):
             return navbar_html
 
         except Exception as e:
-            print(f"Error creating navbar: {e}")
+            self.logger.error(f"Error creating navbar: {e}")
             return '<nav class="dynamic-nav"><ul><li>Error generating navbar</li></ul></nav>'
 
     def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
@@ -218,7 +217,7 @@ class WordpressService(ChannelService):
             id = post_data.get("id", "")
             return id
         except (requests.RequestException, ValueError) as e:
-            print(
+            self.logger.error(
                 f"Error creating post: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
             return ""
@@ -239,7 +238,7 @@ class WordpressService(ChannelService):
             response.raise_for_status()
             return response.json().get("id", 0)
         except requests.RequestException as e:
-            print(
+            self.logger.error(
                 f"Error uploading image: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
             return 0
@@ -258,7 +257,7 @@ class WordpressService(ChannelService):
             per_page = 100
 
             while True:
-                print(f"Fetching page {page} of {per_page} tags...")
+                self.logger.info(f"Fetching page {page} of {per_page} tags...")
                 url = f"{self.api_url}/tags"
                 params = {"page": page, "per_page": per_page, "search": search}
                 response = requests.get(url, headers=self.headers, params=params)
@@ -283,12 +282,12 @@ class WordpressService(ChannelService):
             return tags
 
         except requests.RequestException as e:
-            print(
+            self.logger.error(
                 f"Error retrieving tags: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
             return []
         except ValueError as e:
-            print(f"Error parsing tags response: {e}")
+            self.logger.error(f"Error parsing tags response: {e}")
             return []
 
     def get_similar_posts(
@@ -330,7 +329,7 @@ class WordpressService(ChannelService):
             ]
             return simila_posts
         except Exception as e:
-            print(f"Error finding similar posts: {e}")
+            self.logger.error(f"Error finding similar posts: {e}")
             return []
 
     def get_similar_tag_ids(
@@ -353,7 +352,7 @@ class WordpressService(ChannelService):
                 return []
 
             if any([not tag_id.isdigit() for tag_id in tag_ids_str]):
-                print(
+                self.logger.info(
                     f"Invalid tag IDs found in response: {tag_ids_str}. Returning empty list."
                 )
                 return []
@@ -370,7 +369,7 @@ class WordpressService(ChannelService):
 
             return [int(tag_id) for tag_id in tag_ids_str]
         except Exception as e:
-            print(f"Error finding similar tags: {e}")
+            self.logger.error(f"Error finding similar tags: {e}")
             return []
 
     def create_tags(self, title: str) -> list[int]:
@@ -390,7 +389,7 @@ class WordpressService(ChannelService):
 
             return tag_ids
         except requests.RequestException as e:
-            print(
+            self.logger.error(
                 f"Error creating tag {title}: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
             return []
@@ -413,7 +412,7 @@ class WordpressService(ChannelService):
 
             return content
         except Exception as e:
-            print(f"Error generating content: {e}")
+            self.logger.error(f"Error generating content: {e}")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,3 @@
-from typing import Optional
 from dotenv import load_dotenv
 from amazon_paapi import AmazonApi
 
@@ -75,7 +74,7 @@ class AmazonService(AffiliateProgramService):
             return affiliate_links
 
         except Exception as e:
-            print(f"Error fetching affiliate link: {e}")
+            self.logger.error(f"Error fetching affiliate link: {e}")
 
         # Return default AffiliateLink if no valid link is found or an error occurs
         return AffiliateLink(url="", review_count=0, categories=["Unknown"])

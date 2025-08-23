@@ -3,11 +3,16 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
+from logger_service import LoggerService
+
 load_dotenv()
 
 
 class MediaService:
     fetched_image_urls = []
+
+    def __init__(self):
+        self.logger = LoggerService(name=self.__class__.__name__)
 
     def fetch_image_urls(
         self,
@@ -52,7 +57,7 @@ class MediaService:
             if next_page and len(self.fetched_image_urls) < limit:
                 return self.fetch_image_urls(next_page=next_page)
         except requests.RequestException as e:
-            print(f"Pexels API error for query '{query}': {str(e)}")
+            self.logger.error(f"Pexels API error for query '{query}': {str(e)}")
 
     def get_image_urls(
         self,
@@ -79,9 +84,9 @@ class MediaService:
             file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
             with open(file_path, "a", encoding="utf-8") as file:
                 file.write(f"{affiliate_link}\n")
-            print(f"Affiliate link recorded: {affiliate_link}")
+            self.logger.info(f"Affiliate link recorded: {affiliate_link}")
         except Exception as e:
-            print(f"Error writing affiliate link to file: {str(e)}")
+            self.logger.error(f"Error writing affiliate link to file: {str(e)}")
 
     def is_affiliate_link_used(self, affiliate_link: Optional[str] = None) -> bool:
         """
@@ -112,5 +117,5 @@ class MediaService:
             return affiliate_link in existing_links
 
         except Exception as e:
-            print(f"Error reading affiliate links file: {str(e)}")
+            self.logger.error(f"Error reading affiliate links file: {str(e)}")
             return False

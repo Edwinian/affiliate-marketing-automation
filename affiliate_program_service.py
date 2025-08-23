@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from all_types import AffiliateLink
 from channel_service import ChannelService
 from enums import CustomLinksKey
 from llm_service import LlmService
+from logger_service import LoggerService
 from media_service import MediaService
 from pinterest_service import PinterestService
 from wordpress_service import WordpressService
@@ -19,9 +19,9 @@ class AffiliateProgramService(ABC):
     CHANNELS: list[ChannelService] = [WordpressService, PinterestService]
 
     def __init__(self):
+        self.logger = LoggerService(name=self.__class__.__name__)
         self.llm_service = LlmService()
         self.media_service = MediaService()
-        self.wordpress_service = WordpressService()
 
     @abstractmethod
     def get_affiliate_links(self) -> list[AffiliateLink]:
@@ -35,14 +35,14 @@ class AffiliateProgramService(ABC):
             prompt = f"I make a website about {','.join(affiliate_link.categories)}. Give me one title based on {affiliate_link.url} that is SEO friendly and time-agnostic, return the title only."
             return self.llm_service.generate_text(prompt)
         except Exception as e:
-            print(f"Error generating title: {e}")
+            self.logger.info(f"Error generating title: {e}")
             return f"{affiliate_link.categories[0]}"
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
         affiliate_links = custom_links or self.get_affiliate_links()
 
         if not affiliate_links:
-            print("No affiliate links available.")
+            self.logger.info("No affiliate links available.")
             return
 
         unused_links = [
@@ -52,8 +52,8 @@ class AffiliateProgramService(ABC):
         ]
 
         if not unused_links:
-            print("All affiliate links have been used, retry")
-            return self.execute_cron()
+            self.logger.info("All affiliate links have been used.")
+            return
 
         for link in unused_links:
             try:
@@ -69,14 +69,14 @@ class AffiliateProgramService(ABC):
                             image_url=image_urls[i] if image_urls else "",
                             affiliate_link=link,
                         )
-                        print(
+                        self.logger.info(
                             f"[{channel.__class__.__name__}] content created (ID = {content_id}): {link.url}"
                         )
                     except Exception as e:
-                        print(
+                        self.logger.error(
                             f"Error executing cron for channel {channel.__name__}: {e}"
                         )
 
                 self.media_service.add_affiliate_link(link.url)
             except Exception as e:
-                print(f"Error executing cron for link {link.url}: {e}")
+                self.logger.error(f"Error executing cron for link {link.url}: {e}")

@@ -28,13 +28,13 @@ class PinterestService(ChannelService):
             boards = data.get("items", [])
 
             if not boards:
-                print("No boards found, creating one.")
+                self.logger.info("No boards found, creating one.")
                 self.create_board("Default Board", "This is a default board.")
                 return self._get_board_id()
 
             return boards[0].get("id", "")
         except requests.RequestException as e:
-            print(f"Error fetching boards: {e}")
+            self.logger.error(f"Error fetching boards: {e}")
             return ""
 
     def get_trends(self) -> List[str]:
@@ -52,7 +52,7 @@ class PinterestService(ChannelService):
             trends = [item["keyword"] for item in data.get("data", [])[:3]]
             return trends
         except requests.RequestException as e:
-            print(f"Error fetching trends: {e}")
+            self.logger.error(f"Error fetching trends: {e}")
             return []
 
     def create_board(self, name: str, description: str = "") -> str:
@@ -67,7 +67,7 @@ class PinterestService(ChannelService):
             response.raise_for_status()
             return response.json().get("id", "")
         except requests.RequestException as e:
-            print(f"Error creating board: {e}")
+            self.logger.error(f"Error creating board: {e}")
             return ""
 
     def create_board_section(self, section_name: str) -> str:
@@ -78,7 +78,7 @@ class PinterestService(ChannelService):
         try:
             board_id = self._get_board_id()
             if not board_id:
-                print("Cannot create section: No valid board ID found.")
+                self.logger.info("Cannot create section: No valid board ID found.")
                 return ""
             url = f"{self.base_url}/boards/{board_id}/sections"
             payload = {"name": section_name}
@@ -87,7 +87,7 @@ class PinterestService(ChannelService):
             section_id = response.json().get("id")
             return section_id
         except requests.RequestException as e:
-            print(f"Error creating board section: {e}")
+            self.logger.error(f"Error creating board section: {e}")
             return ""
 
     def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
@@ -99,7 +99,7 @@ class PinterestService(ChannelService):
             board_id = self._get_board_id()
 
             if not board_id:
-                print("No valid board ID found.")
+                self.logger.info("No valid board ID found.")
                 return ""
 
             # Include affiliate link in description if provided
@@ -123,10 +123,10 @@ class PinterestService(ChannelService):
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             pin_id = response.json().get("id")
-            print(f"Created pin {pin_id}")
+            self.logger.info(f"Created pin {pin_id}")
             return pin_id
         except requests.RequestException as e:
-            print(
+            self.logger.error(
                 f"Error creating pin: {e.response.status_code if e.response else 'No response'} - {e.response.json() if e.response else str(e)}"
             )
             return ""
@@ -140,5 +140,5 @@ class PinterestService(ChannelService):
             response = self.llm_service.generate_text(prompt)
             return response
         except Exception as e:
-            print(f"Error generating description: {e}")
+            self.logger.error(f"Error generating description: {e}")
             return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!"

@@ -1,13 +1,20 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from all_types import AffiliateLink
+from logger_service import LoggerService
 
 
 class ChannelService(ABC):
     DISCLOSURE = "Disclosure: At no cost to you, I may earn a small commission from qualifying purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
 
+    def __init__(self):
+        self.logger = LoggerService(name=self.__class__.__name__)
+
     @abstractmethod
-    def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
+    def create(
+        self, title: str, affiliate_link: AffiliateLink, image_url: Optional[str] = None
+    ) -> str:
         """
         Creates content on the channel with the given image, trend, and optional affiliate link.
 
