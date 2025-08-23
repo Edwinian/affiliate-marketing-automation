@@ -1,5 +1,5 @@
 import time
-from affiliate_program_service import AffiliateProgramService
+from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
 from amazon_service import AmazonService
 from enums import CustomLinksKey
@@ -10,7 +10,7 @@ def lambda_handler(event, context):
     logger = LoggerService(name="LambdaHandler")
 
     custom_links_map: dict[str, list[AffiliateLink]] = {CustomLinksKey.AMAZON: []}
-    affiliate_programs: list[AffiliateProgramService] = [
+    affiliate_programs: list[AffiliateProgram] = [
         AmazonService(query="trending products"),
     ]
 

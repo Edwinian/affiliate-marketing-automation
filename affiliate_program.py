@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from all_types import AffiliateLink
-from channel_service import ChannelService
+from channel import Channel
 from enums import CustomLinksKey
 from llm_service import LlmService
 from logger_service import LoggerService
@@ -10,13 +10,13 @@ from pinterest_service import PinterestService
 from wordpress_service import WordpressService
 
 
-class AffiliateProgramService(ABC):
+class AffiliateProgram(ABC):
     """
     Base class for affiliate program services that need to execute cron jobs.
     """
 
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
-    CHANNELS: list[ChannelService] = [WordpressService, PinterestService]
+    CHANNELS: list[Channel] = [WordpressService, PinterestService]
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
@@ -32,7 +32,7 @@ class AffiliateProgramService(ABC):
 
     def get_title(self, affiliate_link: AffiliateLink) -> str:
         try:
-            prompt = f"I make a website about {','.join(affiliate_link.categories)}. Give me one title based on {affiliate_link.url} that is SEO friendly and time-agnostic, return the title only."
+            prompt = f"I make a website about {','.join(affiliate_link.categories[0])}. Give me one title based on {affiliate_link.url} that is SEO friendly and time-agnostic, return the title only."
             return self.llm_service.generate_text(prompt)
         except Exception as e:
             self.logger.info(f"Error generating title: {e}")

@@ -5,14 +5,14 @@ from typing import List, Dict
 import base64
 
 from all_types import AffiliateLink, WordpressPost, WordpressCategory, WordpressTag
-from channel_service import ChannelService
+from channel import Channel
 from enums import LlmErrorPrompt
 from llm_service import LlmService
 
 load_dotenv()
 
 
-class WordpressService(ChannelService):
+class WordpressService(Channel):
     POSTS: List[WordpressPost] = []
     TAGS: List[WordpressTag] = []
 

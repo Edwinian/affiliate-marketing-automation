@@ -4,13 +4,13 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 from all_types import AffiliateLink
-from channel_service import ChannelService
+from channel import Channel
 from llm_service import LlmService
 
 load_dotenv()  # Loads the .env file
 
 
-class PinterestService(ChannelService):
+class PinterestService(Channel):
     def __init__(self):
         self.base_url = "https://api.pinterest.com/v5"
         self.headers = {

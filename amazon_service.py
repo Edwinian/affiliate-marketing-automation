@@ -1,14 +1,14 @@
 from dotenv import load_dotenv
 from amazon_paapi import AmazonApi
 
-from affiliate_program_service import AffiliateProgramService
+from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
 from enums import CustomLinksKey
 
 load_dotenv()
 
 
-class AmazonService(AffiliateProgramService):
+class AmazonService(AffiliateProgram):
     CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
 
     def __init__(self):
