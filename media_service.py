@@ -13,7 +13,7 @@ class MediaService:
         self,
         query: Optional[str] = None,
         size="original",
-        limit: int = 80,
+        limit: int = 1,
         next_page: Optional[str] = None,
     ) -> Optional[list[str]]:
         """
@@ -58,7 +58,7 @@ class MediaService:
         self,
         query: Optional[str] = None,
         size="original",
-        limit: int = 80,
+        limit: int = 1,
     ) -> Optional[list[str]]:
         if len(self.fetched_image_urls) < limit:
             self.fetch_image_urls(query=query, size=size, limit=limit)

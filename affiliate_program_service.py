@@ -48,18 +48,18 @@ class AffiliateProgramService(ABC):
         unused_links = [
             link
             for link in affiliate_links
-            if not self.media_service.is_affiliate_link_used(link)
+            if not self.media_service.is_affiliate_link_used(link.url)
         ]
 
         if not unused_links:
-            print("All affiliate links have been used.")
-            return
+            print("All affiliate links have been used, retry")
+            return self.execute_cron()
 
-        for link in affiliate_links:
+        for link in unused_links:
             try:
                 title = self.get_title(link)
                 image_urls = self.media_service.get_image_urls(
-                    query=title,
+                    query=title, limit=len(self.CHANNELS)
                 )
 
                 for i, channel in enumerate(self.CHANNELS):
