@@ -98,7 +98,7 @@ class WordpressService(ChannelService):
             print(f"Error parsing response: {e}")
             return []
 
-    def get_post_categories(self) -> Dict[str, WordpressCategory]:
+    def get_unique_categories(self) -> Dict[str, WordpressCategory]:
         """
         Retrieve unique categories from existing blog posts.
         Returns a dictionary mapping category slugs to WordpressCategory objects.
@@ -175,7 +175,7 @@ class WordpressService(ChannelService):
            - **Performance**: This method avoids additional API calls or database queries, ensuring optimal performance.
         """
         try:
-            unique_categories = self.get_post_categories()
+            unique_categories = self.get_unique_categories()
 
             if not unique_categories:
                 return "No categories found"
@@ -292,6 +292,48 @@ class WordpressService(ChannelService):
             print(f"Error parsing tags response: {e}")
             return []
 
+    def get_similar_posts(
+        self, title: str, posts: List[WordpressPost] = []
+    ) -> List[WordpressPost]:
+        try:
+            all_posts = posts or self.get_posts()
+
+            if not all_posts:
+                return []
+
+            # Select only id and title to reduce prompt size
+            posts_with_id_and_title = [
+                {"id": post.id, "title": post.title} for post in all_posts
+            ]
+            no_similar_prompt = "No similar posts found."
+            similar_post_ids_str = self.llm_service.generate_text(
+                f"Based on the title '{title}', find posts with similar title from the following list: {posts_with_id_and_title}. Return the IDs of the similar posts as a list separated by comma. If no similar posts are found, return '{no_similar_prompt}'."
+            )
+            similar_posts_found = no_similar_prompt not in similar_post_ids_str
+
+            if not similar_posts_found:
+                return []
+
+            # LLM prompt length limit may be triggered, retry with fewer posts
+            if LlmErrorPrompt.LENGTH_EXCEEDED in similar_post_ids_str:
+                if len(all_posts) > 1:
+                    trim_count = min(5, len(all_posts) - 1)
+                    return self.get_similar_posts(
+                        title=title, posts=all_posts[:-trim_count]
+                    )
+                else:
+                    return []
+
+            simila_posts = [
+                post
+                for post in all_posts
+                if post.id in similar_post_ids_str and post.title != title
+            ]
+            return simila_posts
+        except Exception as e:
+            print(f"Error finding similar posts: {e}")
+            return []
+
     def get_similar_tag_ids(
         self, title: str, tags: List[WordpressTag] = []
     ) -> List[int]:
@@ -303,15 +345,15 @@ class WordpressService(ChannelService):
 
             no_similar_prompt = "No similar tags found."
             similar_tags = self.llm_service.generate_text(
-                f"Based on the title '{title}', find 3 similar tags from the following list: {all_tags}. Return the IDs of the similar tags as a list separated by comma to be split into a list later on. If no similar tags are found, return '{no_similar_prompt}'."
+                f"Based on the title '{title}', find similar tags from the following list: {all_tags}. Return the IDs of the similar tags as a list separated by comma to be split into a list later on. If no similar tags are found, return '{no_similar_prompt}'."
             )
             tag_ids_str = similar_tags.split(",")
             similar_tags_found = no_similar_prompt not in similar_tags
 
-            if (
-                any([not tag_id.isdigit() for tag_id in tag_ids_str])
-                and similar_tags_found
-            ):
+            if not similar_tags_found:
+                return []
+
+            if any([not tag_id.isdigit() for tag_id in tag_ids_str]):
                 print(
                     f"Invalid tag IDs found in response: {tag_ids_str}. Returning empty list."
                 )
@@ -327,7 +369,7 @@ class WordpressService(ChannelService):
                 else:
                     return []
 
-            return [int(tag_id) for tag_id in tag_ids_str] if similar_tags_found else []
+            return [int(tag_id) for tag_id in tag_ids_str]
         except Exception as e:
             print(f"Error finding similar tags: {e}")
             return []
@@ -362,47 +404,21 @@ class WordpressService(ChannelService):
             print(f"Error generating title: {e}")
             return f"{affiliate_link.categories[0]}"
 
-    def get_body_introduction(self, title: str) -> str:
+    def get_post_content(
+        self, title: str, affiliate_link: AffiliateLink, paragraph_count: int = 3
+    ) -> str:
         try:
-            prompt = f"In 50-80 words, give me a compelling introduction for the title {title}, return the introduction only"
-            return self.llm_service.generate_text(prompt)
-        except Exception as e:
-            print(f"Error generating introduction: {e}")
-            return ""
+            prompt = f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraph{"s" if paragraph_count > 1 else ""} and a conclusion, 50-80 words for introduction and conclusion, 100-150 words for each paragraph, return the post content only"
+            content = self.llm_service.generate_text(prompt)
+            similar_posts = self.get_similar_posts(title)
 
-    def get_body_paragraph(self, intro: str, paragraphs: list[str] = []) -> str:
-        try:
-            prompt = f"In 100-150 words, give me a paragraph with an H1 bolded subtitile based on this introduction: {intro} and preceding paragraph(s): {paragraphs}, return the paragraph only"
-            return self.llm_service.generate_text(prompt)
-        except Exception as e:
-            print(f"Error generating body paragraph: {e}")
-            return ""
-
-    def get_body_conclusion(self, intro: str, paragraphs: list[str]) -> str:
-        try:
-            prompt = f"In 50-80 words, give me a conclusion for the blog post with the following introduction: {intro} and body paragraphs: {paragraphs}. Return the conclusion only."
-            return self.llm_service.generate_text(prompt)
-        except Exception as e:
-            print(f"Error generating body conclusion: {e}")
-            return ""
-
-    def get_post_content(self, title: str, affiliate_link: AffiliateLink) -> str:
-        try:
-            intro = self.get_body_introduction(title)
-            paragraphs = []
-
-            for i in range(3):
-                print(f"Generating paragraph {i+1}...")
-                paragraph = self.get_body_paragraph(intro, paragraphs)
-                paragraphs.append(paragraph)
-
-            conclusion = self.get_body_conclusion(intro, paragraphs)
-            content = f"{intro}\n\n{''.join(paragraphs)}\n\n{conclusion}"
-
-            if affiliate_link.url:
+            if affiliate_link:
                 content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now #ad</a>\n\n{self.DISCLOSURE}'
 
-            ##TODO: Add external links to redirect to related posts within the website
+            if similar_posts:
+                content += "\n\n<h2><strong>Related Posts</strong></h2>\n"
+                for post in similar_posts:
+                    content += f'<a href="{post.link}">{post.title}</a><br>\n'
 
             return content
         except Exception as e:
