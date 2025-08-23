@@ -39,7 +39,16 @@ class AffiliateProgram(ABC):
             return f"{affiliate_link.categories[0]}"
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
-        affiliate_links = custom_links or self.get_affiliate_links()
+        unused_custom_links = (
+            [
+                link
+                for link in custom_links
+                if not self.media_service.is_affiliate_link_used(link.url)
+            ]
+            if custom_links
+            else []
+        )
+        affiliate_links = unused_custom_links or self.get_affiliate_links()
 
         if not affiliate_links:
             self.logger.info("No affiliate links available.")
