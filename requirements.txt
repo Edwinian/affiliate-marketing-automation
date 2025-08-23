@@ -2,4 +2,3 @@ python-dotenv
 xai-sdk
 requests 
 python-amazon-paapi
-sentence_transformers
