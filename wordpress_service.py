@@ -398,7 +398,7 @@ class WordpressService(Channel):
         self, title: str, affiliate_link: AffiliateLink, paragraph_count: int = 3
     ) -> str:
         try:
-            prompt = f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraph{"s" if paragraph_count > 1 else ""} and a conclusion, 50-80 words for introduction and conclusion, 100-150 words for each paragraph, return the post content only"
+            prompt = f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraph{"s" if paragraph_count > 1 else ""} and a conclusion, 50-80 words for introduction and conclusion, 100-150 words for each paragraph, 2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs, return the post content only"
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
 
