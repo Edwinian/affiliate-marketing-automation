@@ -58,7 +58,7 @@ class AmazonService(AffiliateProgram):
                         product_category = (
                             item.item_info.classifications.product_group.display_value
                             if item.item_info.classifications
-                            else "Unknown"
+                            else "Others"
                         )
 
                         # Update best link if this item has more reviews
