@@ -16,15 +16,19 @@ class AffiliateProgram(ABC):
     """
 
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
-    CHANNELS: list[Channel] = [WordpressService, PinterestService]
 
     def __init__(self):
-        self.logger = LoggerService(name=self.__class__.__name__)
+        log_name = self.__class__.__name__
+        self.logger = LoggerService(name=log_name)
         self.llm_service = LlmService()
         self.media_service = MediaService()
+        self.CHANNELS: list[Channel] = [
+            WordpressService(log_prefix=log_name),
+            PinterestService(log_prefix=log_name),
+        ]
 
     @abstractmethod
-    def get_affiliate_links(self) -> list[AffiliateLink]:
+    def get_affiliate_links(self, limit: int = 5) -> list[AffiliateLink]:
         """
         Abstract method to be implemented by subclasses for getting affiliate link.
         """
@@ -39,29 +43,11 @@ class AffiliateProgram(ABC):
             return f"{affiliate_link.categories[0]}"
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
-        unused_custom_links = (
-            [
-                link
-                for link in custom_links
-                if not self.media_service.is_affiliate_link_used(link.url)
-            ]
-            if custom_links
-            else []
-        )
-        affiliate_links = unused_custom_links or self.get_affiliate_links()
-
-        if not affiliate_links:
-            self.logger.info("No affiliate links available.")
-            return
-
-        unused_links = [
-            link
-            for link in affiliate_links
-            if not self.media_service.is_affiliate_link_used(link.url)
-        ]
+        affiliate_links = custom_links + self.get_affiliate_links()
+        unused_links = self.media_service.get_unused_affiliate_links(affiliate_links)
 
         if not unused_links:
-            self.logger.info("All affiliate links have been used.")
+            self.logger.warning("No affiliate links available.")
             return
 
         for link in unused_links:

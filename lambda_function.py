@@ -1,35 +1,17 @@
 import time
-from affiliate_program import AffiliateProgram
-from all_types import AffiliateLink
-from amazon_service import AmazonService
-from enums import CustomLinksKey
-from logger_service import LoggerService
+import execute_crons
 
 
 def lambda_handler(event, context):
-    logger = LoggerService(name="LambdaHandler")
+    # Target duration: 10 minutes (600 seconds)
+    target_duration = 600
+    start_time = time.time()
+    total_execution_time = 0
 
-    custom_links_map: dict[str, list[AffiliateLink]] = {CustomLinksKey.AMAZON: []}
-    affiliate_programs: list[AffiliateProgram] = [
-        AmazonService(query="trending products"),
-    ]
-
-    for program in affiliate_programs:
-        name = program.__class__.__name__
-        logger.set_prefix(name)
-
-        try:
-            start_time = time.time()
-            name = program.__class__.__name__
-            custom_links = custom_links_map.get(program.CUSTOM_LINKS_KEY, [])
-
-            program.execute_cron(custom_links=custom_links)
-
-            end_time = time.time()
-            execution_time = end_time - start_time
-            logger.info(f"Finished execution of {name}: {execution_time:.2f} seconds")
-        except Exception as e:
-            logger.error(f"Error executing cron for {name}: {e}")
+    while total_execution_time < target_duration:
+        execute_crons()
+        # Update total execution time after each full loop
+        total_execution_time = time.time() - start_time
 
     return {"statusCode": 200}
 

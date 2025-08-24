@@ -14,7 +14,7 @@ class AmazonService(AffiliateProgram):
     def __init__(self):
         self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
-    def get_affiliate_links(self) -> list[AffiliateLink]:
+    def get_affiliate_links(self, limit: int = 5) -> list[AffiliateLink]:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews.
         Returns an AffiliateLink dataclass with the URL, review count, and product category.
@@ -22,7 +22,7 @@ class AmazonService(AffiliateProgram):
 
         try:
             keywords = self.llm_service.generate_text(
-                f"what is the best amazon affiliate product to promote nowadays? Give me 10 keywords to search and return keywords only separated by comma to be split into list of string in python."
+                f"what is the best amazon affiliate product to promote nowadays? Give me {limit} keywords to search, separated by comma to be split into list of string in python, return keywords only"
             )
             keywords = keywords.split(",")
             affiliate_links = []

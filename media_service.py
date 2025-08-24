@@ -3,6 +3,7 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
+from all_types import AffiliateLink
 from logger_service import LoggerService
 
 load_dotenv()
@@ -88,7 +89,9 @@ class MediaService:
         except Exception as e:
             self.logger.error(f"Error writing affiliate link to file: {str(e)}")
 
-    def is_affiliate_link_used(self, affiliate_link: Optional[str] = None) -> bool:
+    def get_unused_affiliate_links(
+        self, affiliate_links: list[AffiliateLink] = []
+    ) -> list[AffiliateLink]:
         """
         Check if an affiliate link already exists in used_links.txt file.
 
@@ -99,8 +102,10 @@ class MediaService:
             bool: True if the link exists in the file, False otherwise
         """
 
-        if not affiliate_link:
-            return False
+        unused_links = []
+
+        if not affiliate_links:
+            return unused_links
 
         try:
             file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
@@ -113,9 +118,12 @@ class MediaService:
             with open(file_path, "r", encoding="utf-8") as file:
                 existing_links = file.read().splitlines()
 
-            # Check if the affiliate link exists in the list (case-sensitive)
-            return affiliate_link in existing_links
+            for link in affiliate_links:
+                if link.url not in existing_links:
+                    unused_links.append(link)
 
         except Exception as e:
             self.logger.error(f"Error reading affiliate links file: {str(e)}")
             return False
+
+        return unused_links
