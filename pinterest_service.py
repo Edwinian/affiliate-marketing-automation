@@ -202,9 +202,7 @@ class PinterestService(Channel):
             description = self.get_pin_description(title)
 
             if affiliate_link:
-                description += (
-                    f"\nShop now: {affiliate_link.url} #affiliate\n{self.DISCLOSURE}"
-                )
+                description += f"\n{self.DISCLOSURE}"
 
             url = f"{self.base_url}/pins"
             payload = {
@@ -212,7 +210,7 @@ class PinterestService(Channel):
                 "title": title,
                 "description": description,
                 "media_source": {"source_type": "image_url", "url": image_url},
-                "link": affiliate_link.url,
+                "link": affiliate_link.url if affiliate_link else "",
             }
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
