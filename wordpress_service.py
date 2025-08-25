@@ -2,17 +2,16 @@ import os
 from dotenv import load_dotenv
 import requests
 from typing import List, Dict
-import base64
 
 from all_types import AffiliateLink, WordpressPost, WordpressCategory, WordpressTag
 from channel import Channel
 from enums import LlmErrorPrompt
-from llm_service import LlmService
 
 load_dotenv()
 
 
 class WordpressService(Channel):
+    CATEGORIES: List[WordpressCategory] = []
     POSTS: List[WordpressPost] = []
     TAGS: List[WordpressTag] = []
 
@@ -20,12 +19,73 @@ class WordpressService(Channel):
         super().__init__()
         self.api_url = os.getenv("WORDPRESS_API_URL")
         self.frontend_url = os.getenv("WORDPRESS_FRONTEND_URL")
-        username = os.getenv("WORDPRESS_USERNAME")
-        app_password = os.getenv("WORDPRESS_APP_PASSWORD")
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Basic {base64.b64encode(f'{username}:{app_password}'.encode()).decode()}",
+            "Authorization": f"Bearer {os.getenv('WORDPRESS_ACCESS_TOKEN')}",
         }
+
+    def create_category(self, name: str, slug: str = "", description: str = "") -> int:
+        try:
+            name = name.strip()
+            self.logger.info(f"Creating category with name: {name}")
+
+            url = f"{self.api_url}/categories"
+            payload = {"name": name, "slug": slug, "description": description}
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+
+            category_data = response.json()
+            category_id = category_data.get("id", 0)
+
+            if category_id:
+                self.logger.info(
+                    f"Successfully created category '{name}' with ID: {category_id}"
+                )
+            else:
+                self.logger.error(f"Failed to retrieve ID for category '{name}'")
+
+            return category_id
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error creating category '{name}': {e}, Response: {e.response.text if e.response else 'No response'}"
+            )
+            return 0
+        except ValueError as e:
+            self.logger.error(f"Error parsing response for category '{name}': {e}")
+            return 0
+
+    def get_categories(self) -> List[WordpressCategory]:
+        if self.CATEGORIES:
+            return self.CATEGORIES
+
+        url = f"{self.api_url}/categories"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        categories = response.json()
+        self.CATEGORIES = categories
+        return categories
+
+    def get_category_ids(self, query_names: List[str]) -> List[int]:
+        try:
+            query_names = [
+                name.strip().lower() for name in query_names if name.strip()
+            ]  # Normalize names
+            categories = self.get_categories()
+            query_categories = [
+                cat for cat in categories if cat.get("name", "").lower() in query_names
+            ]
+
+            return [cat.get("id", 0) for cat in query_categories]
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error retrieving categories: {e}, Response: {e.response.text if e.response else 'No response'}"
+            )
+            return []
+        except ValueError as e:
+            self.logger.error(f"Error parsing categories response: {e}")
+            return []
 
     def get_posts(self) -> List[WordpressPost]:
         """
@@ -200,6 +260,9 @@ class WordpressService(Channel):
         try:
             content = self.get_post_content(title, affiliate_link)
             featured_media_id = self.upload_feature_image(image_url) if image_url else 0
+            category_ids = self.get_category_ids(affiliate_link.categories) or [
+                self.create_category(name) for name in affiliate_link.categories
+            ]
             tag_ids = self.get_similar_tag_ids(title) or self.create_tags(title)
 
             url = f"{self.api_url}/posts"
@@ -208,7 +271,7 @@ class WordpressService(Channel):
                 "content": content,
                 "status": "publish",
                 "featured_media": featured_media_id,
-                "categories": affiliate_link.categories,
+                "categories": category_ids,
                 "tags": tag_ids,
             }
             response = requests.post(url, headers=self.headers, json=payload)
@@ -325,7 +388,7 @@ class WordpressService(Channel):
             simila_posts = [
                 post
                 for post in all_posts
-                if post.id in similar_post_ids_str and post.title != title
+                if str(post.id) in similar_post_ids_str and post.title != title
             ]
             return simila_posts
         except Exception as e:
@@ -403,10 +466,10 @@ class WordpressService(Channel):
             similar_posts = self.get_similar_posts(title)
 
             if affiliate_link:
-                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now #ad</a>\n\n{self.DISCLOSURE}'
+                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>\n\n{self.DISCLOSURE}'
 
             if similar_posts:
-                content += "\n\n<h2><strong>Related Posts</strong></h2>\n"
+                content += "\n\n<h4><strong>Related Posts</strong></h4>\n"
                 for post in similar_posts:
                     content += f'<a href="{post.link}">{post.title}</a><br>\n'
 

@@ -19,12 +19,12 @@ class PinterestService(Channel):
             "Content-Type": "application/json",
         }
         # Check token validity and refresh if necessary
-        if not self.check_token_validity():
+        if not self.is_token_valid():
             self.logger.warning("Access token is invalid, attempting to refresh.")
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
 
-    def check_token_validity(self) -> bool:
+    def is_token_valid(self) -> bool:
         url = "https://api.pinterest.com/v5/user_account"
 
         try:
@@ -212,9 +212,7 @@ class PinterestService(Channel):
                 "title": title,
                 "description": description,
                 "media_source": {"source_type": "image_url", "url": image_url},
-                "link": (
-                    affiliate_link if affiliate_link else None
-                ),  # Set destination link
+                "link": affiliate_link.url,
             }
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
@@ -243,5 +241,5 @@ class PinterestService(Channel):
 
 if __name__ == "__main__":
     service = PinterestService()
-    result = service.get_pins()
+    result = service.get_pinterest_auth_url()
     print(result)

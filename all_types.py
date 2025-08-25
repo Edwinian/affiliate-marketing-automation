@@ -1,12 +1,11 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 
 @dataclass
 class AffiliateLink:
     url: str
     categories: list[str]
-    review_count: Optional[int] = 0
 
 
 @dataclass

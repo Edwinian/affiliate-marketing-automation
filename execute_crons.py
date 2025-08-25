@@ -9,7 +9,7 @@ from logger_service import LoggerService
 
 def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None):
     logger = LoggerService(name="execute_crons")
-    affiliate_programs: list[AffiliateProgram] = [AmazonService]
+    affiliate_programs: list[AffiliateProgram] = [AmazonService()]
 
     for program in affiliate_programs:
         name = program.__class__.__name__
@@ -35,6 +35,29 @@ def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = N
 
 # Local test
 if __name__ == "__main__":
-    custom_links_map = {CustomLinksKey.AMAZON: []}
+    custom_links_map: dict[str, list[AffiliateLink]] = {
+        CustomLinksKey.AMAZON: [
+            # AffiliateLink(
+            #     url="https://amzn.to/46d5C1d",
+            #     categories=["Home Improvement"],
+            # ),
+            # AffiliateLink(
+            #     url="https://amzn.to/3JQsU56",
+            #     categories=["Health & Personal Care"],
+            # ),
+            AffiliateLink(
+                url="https://amzn.to/4oSGC7O",
+                categories=["Health & Personal Care"],
+            ),
+            AffiliateLink(
+                url="https://amzn.to/45R2Tu7",
+                categories=["Home Improvement"],
+            ),
+            AffiliateLink(
+                url="https://amzn.to/4lKnRAy",
+                categories=["Pet Supplies"],
+            ),
+        ]
+    }
     response = execute_crons(custom_links_map=custom_links_map)
     print("Response:", response)

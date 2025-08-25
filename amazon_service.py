@@ -12,7 +12,8 @@ class AmazonService(AffiliateProgram):
     CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
 
     def __init__(self):
-        self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
+        super().__init__()
+        # self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
     def get_affiliate_links(self, limit: int = 5) -> list[AffiliateLink]:
         """
@@ -40,7 +41,7 @@ class AmazonService(AffiliateProgram):
                         "ItemInfo.CustomerReviews",
                         "ItemInfo.Classifications",
                     ],
-                    sort_by=models.SortBy.AVGCUSTOMERREVIEWS,
+                    sort_by=models.SortBy.FEATURED,
                 )
 
                 if response.items:
@@ -66,7 +67,6 @@ class AmazonService(AffiliateProgram):
                             max_reviews = num_reviews
                             best_link = AffiliateLink(
                                 url=affiliate_link,
-                                review_count=num_reviews,
                                 categories=[product_category],
                             )
 
@@ -78,4 +78,4 @@ class AmazonService(AffiliateProgram):
             self.logger.error(f"Error fetching affiliate link: {e}")
 
         # Return default AffiliateLink if no valid link is found or an error occurs
-        return AffiliateLink(url="", review_count=0, categories=["Unknown"])
+        return AffiliateLink(url="", categories=["Unknown"])

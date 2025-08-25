@@ -18,7 +18,7 @@ class AffiliateProgram(ABC):
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
     CHANNELS: list[Channel] = [
         WordpressService(),
-        PinterestService(),
+        # PinterestService(),
     ]
 
     def __init__(self):
@@ -36,14 +36,14 @@ class AffiliateProgram(ABC):
 
     def get_title(self, affiliate_link: AffiliateLink) -> str:
         try:
-            prompt = f"I make a website about {','.join(affiliate_link.categories[0])}. Give me one title based on {affiliate_link.url} that is SEO friendly and time-agnostic, return the title only."
+            prompt = f"I make a website about {','.join(affiliate_link.categories[0])}. Give me one title based on the product name from this link: {affiliate_link.url}, that is SEO friendly and time-agnostic, return the title only without quotes."
             return self.llm_service.generate_text(prompt)
         except Exception as e:
             self.logger.info(f"Error generating title: {e}")
             return f"{affiliate_link.categories[0]}"
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
-        affiliate_links = custom_links + self.get_affiliate_links()
+        affiliate_links = custom_links or self.get_affiliate_links()
         unused_links = self.media_service.get_unused_affiliate_links(affiliate_links)
 
         if not unused_links:
@@ -56,6 +56,7 @@ class AffiliateProgram(ABC):
                 image_urls = self.media_service.get_image_urls(
                     query=title, limit=len(self.CHANNELS)
                 )
+                create_fail_exist = False
 
                 for i, channel in enumerate(self.CHANNELS):
                     try:
@@ -64,14 +65,20 @@ class AffiliateProgram(ABC):
                             image_url=image_urls[i] if image_urls else "",
                             affiliate_link=link,
                         )
+
+                        if not content_id:
+                            continue
+
                         self.logger.info(
                             f"[{channel.__class__.__name__}] content created (ID = {content_id}): {link.url}"
                         )
                     except Exception as e:
+                        create_fail_exist = True
                         self.logger.error(
-                            f"Error executing cron for channel {channel.__name__}: {e}"
+                            f"Error executing cron for channel {channel.__class__.__name__}: {e}"
                         )
 
-                self.media_service.add_affiliate_link(link.url)
+                if not create_fail_exist:
+                    self.media_service.add_affiliate_link(link.url)
             except Exception as e:
                 self.logger.error(f"Error executing cron for link {link.url}: {e}")
