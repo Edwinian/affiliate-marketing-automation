@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+import uuid
 import requests
 from typing import Dict, List, Any
 import os
@@ -13,9 +15,100 @@ class PinterestService(Channel):
         super().__init__()
         self.base_url = "https://api.pinterest.com/v5"
         self.headers = {
-            "Authorization": f"Bearer {os.getenv('PINTEREST_TOKEN')}",
+            "Authorization": f"Bearer {os.getenv('PINTEREST_ACCESS_TOKEN')}",
             "Content-Type": "application/json",
         }
+        # Check token validity and refresh if necessary
+        if not self.check_token_validity():
+            self.logger.warning("Access token is invalid, attempting to refresh.")
+            if not self.refresh_access_token():
+                self.logger.error("Failed to refresh access token.")
+
+    def check_token_validity(self) -> bool:
+        url = "https://api.pinterest.com/v5/user_account"
+
+        try:
+            response = requests.get(url, headers=self.headers)
+            if response.status_code == 200:
+                return True
+            else:
+                self.logger.warning(
+                    f"Token is invalid. Status code: {response.status_code}, Error: {response.json()}"
+                )
+                return False
+        except requests.RequestException as e:
+            print(f"Error checking token: {e}")
+            return False
+
+    def refresh_access_token(self) -> bool:
+        """
+        Refresh the Pinterest access token using the refresh token.
+        Updates self.headers with the new access token if successful.
+        """
+        url = f"{self.base_url}/oauth/token"
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": os.getenv("PINTEREST_REFRESH_TOKEN"),
+            "client_id": os.getenv("PINTEREST_APP_ID"),
+            "client_secret": os.getenv("PINTEREST_APP_SECRET"),
+        }
+
+        try:
+            response = requests.post(url, headers=headers, data=data)
+            response.raise_for_status()
+            response_data = response.json()
+            new_access_token = response_data.get("access_token")
+            new_refresh_token = response_data.get(
+                "refresh_token"
+            )  # Optional: new refresh token if provided
+
+            if new_access_token:
+                # Update headers with new access token
+                self.headers["Authorization"] = f"Bearer {new_access_token}"
+                self.logger.warning("Access token refreshed successfully.")
+            else:
+                self.logger.error(
+                    "No access token in refresh response: %s", response_data
+                )
+                return False
+
+            if new_refresh_token:
+                self.logger.warning("Refresh token updated.")
+
+            return True
+        except requests.RequestException as e:
+            self.logger.error(
+                "Error refreshing token: %s - %s",
+                e.response.status_code if e.response else "No response",
+                e.response.json() if e.response else str(e),
+            )
+            return False
+
+    def get_pinterest_auth_url(self) -> str:
+        """
+        Generate Pinterest OAuth authorization URL with a unique state parameter.
+        Returns the URL and the state value for verification.
+        """
+        redirect_uri = "http://localhost:8000/pinterest/callback"
+        scopes = [
+            "boards:read",
+            "boards:write",
+            "pins:read",
+            "pins:write",
+            "user_accounts:read",
+            "user_accounts:write",
+        ]
+        state = str(uuid.uuid4())  # Unique state for CSRF protection
+        base_url = "https://www.pinterest.com/oauth/"
+        params = {
+            "client_id": os.getenv("PINTEREST_APP_ID"),
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": ",".join(scopes),
+            "state": state,
+        }
+        return f"{base_url}?{urlencode(params)}", state
 
     def _get_board_id(self, name: str) -> str:
         try:
@@ -150,5 +243,5 @@ class PinterestService(Channel):
 
 if __name__ == "__main__":
     service = PinterestService()
-    trends = service.get_pins()
-    print(trends)
+    result = service.get_pins()
+    print(result)
