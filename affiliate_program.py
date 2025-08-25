@@ -16,16 +16,16 @@ class AffiliateProgram(ABC):
     """
 
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
+    CHANNELS: list[Channel] = [
+        WordpressService(),
+        PinterestService(),
+    ]
 
     def __init__(self):
         log_name = self.__class__.__name__
         self.logger = LoggerService(name=log_name)
         self.llm_service = LlmService()
         self.media_service = MediaService()
-        self.CHANNELS: list[Channel] = [
-            WordpressService(log_prefix=log_name),
-            PinterestService(log_prefix=log_name),
-        ]
 
     @abstractmethod
     def get_affiliate_links(self, limit: int = 5) -> list[AffiliateLink]:

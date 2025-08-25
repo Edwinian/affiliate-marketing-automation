@@ -1,67 +1,68 @@
 import requests
-from typing import List
-from datetime import datetime, timedelta
+from typing import Dict, List, Any
 import os
 from dotenv import load_dotenv
 from all_types import AffiliateLink
 from channel import Channel
-from llm_service import LlmService
 
 load_dotenv()  # Loads the .env file
 
 
 class PinterestService(Channel):
     def __init__(self):
+        super().__init__()
         self.base_url = "https://api.pinterest.com/v5"
         self.headers = {
             "Authorization": f"Bearer {os.getenv('PINTEREST_TOKEN')}",
             "Content-Type": "application/json",
         }
-        self.llm_service = LlmService()
 
-    def _get_board_id(self) -> str:
+    def _get_board_id(self, name: str) -> str:
         try:
             url = f"{self.base_url}/boards"
             response = requests.get(url, headers=self.headers)
             response.raise_for_status()
             data = response.json()
             boards = data.get("items", [])
+            board = next(
+                (board for board in boards if board["name"].lower() == name.lower()),
+                None,
+            )
 
-            if not boards:
-                self.logger.info("No boards found, creating one.")
-                self.create_board("Default Board", "This is a default board.")
-                return self._get_board_id()
+            if not board:
+                self.logger.info(f"No board found for the name '{name}', creating one.")
+                return self.create_board(name)
 
-            return boards[0].get("id", "")
+            return board["id"]
         except requests.RequestException as e:
             self.logger.error(f"Error fetching boards: {e}")
             return ""
 
-    def get_trends(self) -> List[str]:
+    def get_pins(self) -> List[Dict[str, Any]]:
         """
-        Calls Pinterest Trends API and returns a list of the top 3 latest retail trends
-        from the last 6 months.
+        Calls Pinterest API and returns a list of the top 3 latest pins.
         """
         try:
-            url = f"{self.base_url}/trends/keywords"
-            six_months_ago = (datetime.now() - timedelta(days=180)).isoformat()
-            params = {"category": "retail", "since": six_months_ago, "limit": 3}
-            response = requests.get(url, headers=self.headers, params=params)
+            url = f"{self.base_url}/pins"
+            response = requests.get(url, headers=self.headers)
             response.raise_for_status()
             data = response.json()
-            trends = [item["keyword"] for item in data.get("data", [])[:3]]
-            return trends
+            pins = data.get("items", [])
+            return pins
         except requests.RequestException as e:
-            self.logger.error(f"Error fetching trends: {e}")
+            self.logger.error(f"Error fetching pins: {e}")
             return []
 
-    def create_board(self, name: str, description: str = "") -> str:
+    def create_board(self, name: str) -> str:
         """
         Creates a Pinterest board with the given name and optional description.
         Returns the board ID.
         """
         try:
             url = f"{self.base_url}/boards"
+            description = self.llm_service.generate_text(
+                f"Create a Pinterest board description based on '{name}' that is SEO friendly, time-agnostic, and suitable for affiliate marketing, return the description only"
+            )
             payload = {"name": name, "description": description}
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
@@ -70,16 +71,18 @@ class PinterestService(Channel):
             self.logger.error(f"Error creating board: {e}")
             return ""
 
-    def create_board_section(self, section_name: str) -> str:
+    def create_board_section(self, board_name: str, section_name: str) -> str:
         """
-        Creates a section in the first board retrieved from the user's boards.
+        Creates a section in the board retrieved from the user's boards.
         Returns the section ID.
         """
         try:
-            board_id = self._get_board_id()
+            board_id = self._get_board_id(board_name)
+
             if not board_id:
                 self.logger.info("Cannot create section: No valid board ID found.")
                 return ""
+
             url = f"{self.base_url}/boards/{board_id}/sections"
             payload = {"name": section_name}
             response = requests.post(url, headers=self.headers, json=payload)
@@ -96,7 +99,7 @@ class PinterestService(Channel):
         Returns the pin ID.
         """
         try:
-            board_id = self._get_board_id()
+            board_id = self._get_board_id(affiliate_link.categories[0])
 
             if not board_id:
                 self.logger.info("No valid board ID found.")
@@ -122,7 +125,8 @@ class PinterestService(Channel):
             }
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
-            pin_id = response.json().get("id")
+            data = response.json()
+            pin_id = data.get("id")
             self.logger.info(f"Created pin {pin_id}")
             return pin_id
         except requests.RequestException as e:
@@ -142,3 +146,9 @@ class PinterestService(Channel):
         except Exception as e:
             self.logger.error(f"Error generating description: {e}")
             return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!"
+
+
+if __name__ == "__main__":
+    service = PinterestService()
+    trends = service.get_pins()
+    print(trends)

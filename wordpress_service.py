@@ -17,6 +17,7 @@ class WordpressService(Channel):
     TAGS: List[WordpressTag] = []
 
     def __init__(self):
+        super().__init__()
         self.api_url = os.getenv("WORDPRESS_API_URL")
         self.frontend_url = os.getenv("WORDPRESS_FRONTEND_URL")
         username = os.getenv("WORDPRESS_USERNAME")
@@ -25,7 +26,6 @@ class WordpressService(Channel):
             "Content-Type": "application/json",
             "Authorization": f"Basic {base64.b64encode(f'{username}:{app_password}'.encode()).decode()}",
         }
-        self.llm_service = LlmService()
 
     def get_posts(self) -> List[WordpressPost]:
         """

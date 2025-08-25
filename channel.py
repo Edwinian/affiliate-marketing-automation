@@ -2,14 +2,16 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from all_types import AffiliateLink
+from llm_service import LlmService
 from logger_service import LoggerService
 
 
 class Channel(ABC):
-    DISCLOSURE = "Disclosure: At no cost to you, I may earn a small commission from qualifying purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
+    DISCLOSURE = "Disclosure: At no extra cost to you, I may earn a small commission from qualifying purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
 
-    def __init__(self, log_prefix: str):
-        self.logger = LoggerService(name=f"{log_prefix}-{self.__class__.__name__}")
+    def __init__(self):
+        self.logger = LoggerService(name=self.__class__.__name__)
+        self.llm_service = LlmService()
 
     @abstractmethod
     def create(
