@@ -243,33 +243,27 @@ class WordpressService(Channel):
                 self.logger.error("No categories found to create menu items")
                 return []
 
-            self.logger.info(
-                f"Categories: {[cat.get('name', '') for cat in categories]}"
-            )
+            self.logger.info(f"Categories: {[cat.name for cat in categories]}")
 
             # Step 4: Filter categories not in menu
             new_categories = [
-                cat for cat in categories if cat.get("name", "") not in existing_titles
+                cat for cat in categories if cat.name not in existing_titles
             ]
             if not new_categories:
                 self.logger.info(f"All categories already in menu ID {menu_id}")
                 return []
 
             self.logger.info(
-                f"New categories: {[cat.get('name', '').lower() for cat in new_categories]}"
+                f"New categories: {[cat.name.lower() for cat in new_categories]}"
             )
 
             # Step 5: Create menu items for missing categories
             menu_order = len(existing_titles) + 1
             new_menu_ids = []
 
-            for category in sorted(
-                new_categories, key=lambda x: x.get("name", "").lower()
-            ):
-                category_name = category.get("name", "")
-                category_url = (
-                    f"{self.frontend_url}/category/{category.get('slug', '')}"
-                )
+            for category in sorted(new_categories, key=lambda x: x.name.lower()):
+                category_name = category.name
+                category_url = f"{self.frontend_url}/category/{category.slug}"
                 payload = {
                     "title": category_name,
                     "url": category_url,
@@ -345,7 +339,7 @@ class WordpressService(Channel):
             self.logger.error(f"Error parsing response for category '{name}': {e}")
             return 0
 
-    def get_categories(self) -> List[Dict]:
+    def get_categories(self) -> List[WordpressCategory]:
         if self.CATEGORIES:
             self.CATEGORIES
 
@@ -354,7 +348,12 @@ class WordpressService(Channel):
         response.raise_for_status()
         categories = response.json() if response else []
         self.CATEGORIES = [
-            {**cat, "name": self.sanitize(cat.get("name", ""))} for cat in categories
+            WordpressCategory(
+                id=cat.get("id", 0),
+                name=self.sanitize(cat.get("name", "")),
+                slug=cat.get("slug", ""),
+            )
+            for cat in categories
         ]
         self.logger.info(f"Retrieved {len(self.CATEGORIES)} categories")
         return self.CATEGORIES
@@ -366,10 +365,10 @@ class WordpressService(Channel):
             ]  # Normalize names
             categories = self.get_categories()
             query_categories = [
-                cat for cat in categories if cat.get("name", "").lower() in query_names
+                cat for cat in categories if cat.name.lower() in query_names
             ]
 
-            return [cat.get("id", 0) for cat in query_categories]
+            return [cat.id for cat in query_categories]
 
         except requests.RequestException as e:
             self.logger.error(
@@ -513,11 +512,9 @@ class WordpressService(Channel):
             navbar_items = []
 
             for category in categories:
-                category_url = (
-                    f"{self.frontend_url}/category/{category.get('slug', '')}"
-                )
+                category_url = f"{self.frontend_url}/category/{category.slug}"
                 navbar_items.append(
-                    f'<li><a href="{category_url}">{self.sanitize(category.get("name", ""))}</a></li>'
+                    f'<li><a href="{category_url}">{self.sanitize(category.name)}</a></li>'
                 )
 
             navbar_html = (
