@@ -28,7 +28,7 @@ class AffiliateProgram(ABC):
         self.media_service = MediaService()
 
     @abstractmethod
-    def get_affiliate_links(self, limit: int = 5) -> list[AffiliateLink]:
+    def get_affiliate_links(self) -> list[AffiliateLink]:
         """
         Abstract method to be implemented by subclasses for getting affiliate link.
         """

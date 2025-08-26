@@ -13,9 +13,9 @@ class AmazonService(AffiliateProgram):
 
     def __init__(self):
         super().__init__()
-        # self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
+        self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
-    def get_affiliate_links(self, limit: int = 5) -> list[AffiliateLink]:
+    def get_affiliate_links(self, limit: int = 2) -> list[AffiliateLink]:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews for each keyword.
         Returns an AffiliateLink dataclass with the URL, review count, and product category.
@@ -51,8 +51,13 @@ class AmazonService(AffiliateProgram):
 
                     for item in response.items:
                         affiliate_link = item.detail_page_url
+                        product_title = item.item_info.title.display_value
 
-                        if not affiliate_link:
+                        if (
+                            not affiliate_link
+                            or not product_title
+                            or "amazon" in product_title.lower()
+                        ):
                             continue
 
                         num_reviews = item.customer_reviews.count or 0
