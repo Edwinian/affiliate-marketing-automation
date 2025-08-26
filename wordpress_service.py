@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 import requests
-from typing import List, Dict
+from typing import List
 
 from all_types import AffiliateLink, WordpressPost, WordpressCategory, WordpressTag
 from channel import Channel
@@ -23,6 +23,209 @@ class WordpressService(Channel):
             "Content-Type": "application/json",
             "Authorization": f"Bearer {os.getenv('WORDPRESS_ACCESS_TOKEN')}",
         }
+
+    def get_menus(self, params: dict[str, str]):
+        self.logger.info(f"Fetching menus...")
+        url = f"{self.api_url}/menus"
+        response = requests.get(url, headers=self.headers, params=params)
+        response.raise_for_status()
+        menus = response.json()
+        return menus or []
+
+    def get_homepage_menu_id(self) -> int:
+        """
+        Retrieves the menu ID OF THE homepage menu from WordPress.
+        """
+        MENU_NAME = "Homepage"
+
+        try:
+            params = {"search": MENU_NAME}
+            menus = self.get_menus(params)
+            homepage_menu = menus[0] if menus else None
+
+            if homepage_menu:
+                menu_id = homepage_menu.get("id", 0)
+                self.logger.info(f"Found '{MENU_NAME}' menu with ID {menu_id}")
+                return menu_id
+
+            self.logger.info(f"No '{MENU_NAME}' menu found, creating one...")
+            return self.create_menu(name=MENU_NAME)
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error retrieving menus: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}"
+            )
+            return None
+        except ValueError as e:
+            self.logger.error(f"Error parsing menus response: {e}")
+            return None
+
+    def create_menu(self, name: str, location: str = "primary") -> int:
+        """
+        Creates navbar menu
+        """
+        try:
+            # Create new menu
+            self.logger.info(f"Creating new '{name}' menu...")
+            payload = {
+                "name": name,
+                "description": f"{name} menu",
+                "locations": [location],
+            }
+            response = requests.post(
+                f"{self.api_url}/menus", headers=self.headers, json=payload
+            )
+            response.raise_for_status()
+            menu_id = response.json().get("id", 0)
+
+            if menu_id:
+                self.logger.info(
+                    f"Created '{name}' menu with ID {menu_id}, assigned to location '{location}'"
+                )
+                return menu_id
+            else:
+                self.logger.error(
+                    f"Failed to retrieve ID for newly created '{name}' menu"
+                )
+                return 0
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error creating 'Homepage' menu: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}"
+            )
+            return 0
+        except ValueError as e:
+            self.logger.error(
+                f"Error parsing response for 'Homepage' menu creation: {e}"
+            )
+            return 0
+
+    def get_menu_items(self, menu_id: int) -> List[str]:
+        """
+        Retrieves all navigation menu item titles for a specified menu from WordPress.
+        Uses the /wp/v2/menu-items endpoint with pagination to fetch all items.
+
+        """
+        try:
+            menu_items = []
+            page = 1
+            per_page = 100
+
+            while True:
+                self.logger.info(
+                    f"Fetching page {page} of {per_page} menu items for menu ID {menu_id}..."
+                )
+                url = f"{self.api_url}/menu-items"
+                params = {"menus": menu_id, "page": page, "per_page": per_page}
+                response = requests.get(url, headers=self.headers, params=params)
+                response.raise_for_status()
+                page_items = response.json()
+
+                if not page_items:
+                    break
+
+                for item in page_items:
+                    title = item.get("title", "")
+                    if title:
+                        menu_items.append(title)
+
+                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
+                if page >= total_pages:
+                    break
+                page += 1
+
+            self.logger.info(
+                f"Retrieved {len(menu_items)} menu items for menu ID {menu_id}"
+            )
+            return menu_items
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error retrieving menu items for menu ID {menu_id}: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}"
+            )
+            return []
+        except ValueError as e:
+            self.logger.error(
+                f"Error parsing menu items response for menu ID {menu_id}: {e}"
+            )
+            return []
+
+    def update_menu_items(self) -> bool:
+        """
+        Update menu items for categories not already in the specified menu.
+        """
+        try:
+            # Step 1: Get all categories
+            categories = self.get_categories()
+
+            # Step 2: Get existing menu item titles
+            menu_id = self.get_homepage_menu_id()
+            menu_items = self.get_menu_items(menu_id)
+            existing_titles = [title.lower() for title in menu_items]
+
+            # Step 3: Filter categories not in menu
+            new_categories = [
+                cat
+                for cat in categories
+                if cat.get("name", "").lower() not in existing_titles
+            ]
+
+            if not new_categories:
+                self.logger.info(f"All categories already in menu ID {menu_id}")
+                return True
+
+            # Step 4: Create menu items for missing categories
+            menu_order = len(existing_titles) + 1
+
+            for category in sorted(
+                new_categories, key=lambda x: x.get("name", "").lower()
+            ):
+                category_name = category.get("name", "")
+                category_url = (
+                    f"{self.frontend_url}/category/{category.get('slug', '')}"
+                )
+                payload = {
+                    "title": category_name,
+                    "url": category_url,
+                    "menu_order": menu_order,
+                    "status": "publish",
+                    "type": "custom",  # Custom link for category archive
+                    "object": "category",  # Reference to category
+                    "object_id": category.get("id", 0),  # Category ID
+                    "menus": menu_id,  # Assign to specified menu
+                }
+                response = requests.post(
+                    f"{self.api_url}/menu-items", headers=self.headers, json=payload
+                )
+                response.raise_for_status()
+                menu_item_id = response.json().get("id", 0)
+                if menu_item_id:
+                    self.logger.info(
+                        f"Created menu item '{category_name}' (ID: {menu_item_id}) for menu ID {menu_id}"
+                    )
+                    menu_order += 1
+                else:
+                    self.logger.error(
+                        f"Failed to create menu item for category '{category_name}'"
+                    )
+
+            self.logger.info(
+                f"Added {len(new_categories)} new menu items to menu ID {menu_id}"
+            )
+            return True
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error creating menu items for menu ID {menu_id}: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}"
+            )
+            return False
+        except ValueError as e:
+            self.logger.error(f"Error parsing response for menu items creation: {e}")
+            return False
 
     def create_category(self, name: str, slug: str = "", description: str = "") -> int:
         try:
@@ -55,14 +258,14 @@ class WordpressService(Channel):
             self.logger.error(f"Error parsing response for category '{name}': {e}")
             return 0
 
-    def get_categories(self) -> List[WordpressCategory]:
+    def get_categories(self) -> List[str]:
         if self.CATEGORIES:
             return self.CATEGORIES
 
         url = f"{self.api_url}/categories"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
-        categories = response.json()
+        categories = response.json() if response else []
         self.CATEGORIES = categories
         return categories
 
