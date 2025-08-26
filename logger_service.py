@@ -29,10 +29,6 @@ class LoggerService:
     def warning(self, message: str) -> None:
         self.logger.warning(self._get_message_with_prefix(message))
 
-    def debug(self, message: str) -> None:
-        """Log results of a private method or values in a method"""
-        self.logger.debug(self._get_message_with_prefix(message))
-
     def error(self, message: str) -> None:
         self.logger.error(self._get_message_with_prefix(message))
 

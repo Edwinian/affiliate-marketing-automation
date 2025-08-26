@@ -7,7 +7,7 @@ from logger_service import LoggerService
 
 
 class Channel(ABC):
-    DISCLOSURE = "Disclosure: At no extra cost to you, I may earn a small commission from qualifying purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
+    DISCLOSURE = "Disclosure: We do not work for any company of the products or services mentioned. At no extra cost to you, we may earn a small commission from purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)

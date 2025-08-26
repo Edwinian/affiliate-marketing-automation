@@ -5,6 +5,7 @@ from typing import List
 @dataclass
 class AffiliateLink:
     url: str
+    product_title: str
     categories: list[str]
 
 

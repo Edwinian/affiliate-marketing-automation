@@ -36,7 +36,7 @@ class AffiliateProgram(ABC):
 
     def get_title(self, affiliate_link: AffiliateLink) -> str:
         try:
-            prompt = f"I make a website about {','.join(affiliate_link.categories[0])}. Give me one title based on the product name from this link: {affiliate_link.url}, that is SEO friendly and time-agnostic, return the title only without quotes."
+            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
             return self.llm_service.generate_text(prompt)
         except Exception as e:
             self.logger.info(f"Error generating title: {e}")
@@ -60,6 +60,7 @@ class AffiliateProgram(ABC):
 
                 for i, channel in enumerate(self.CHANNELS):
                     try:
+                        channel_name = channel.__class__.__name__
                         content_id = channel.create(
                             title=title,
                             image_url=image_urls[i] if image_urls else "",
@@ -70,7 +71,7 @@ class AffiliateProgram(ABC):
                             continue
 
                         self.logger.info(
-                            f"[{channel.__class__.__name__}] content created (ID = {content_id}): {link.url}"
+                            f"[{channel_name}] content created (ID = {content_id}): {link.url}"
                         )
                     except Exception as e:
                         create_fail_exist = True

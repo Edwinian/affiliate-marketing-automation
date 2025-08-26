@@ -202,7 +202,7 @@ class PinterestService(Channel):
             description = self.get_pin_description(title)
 
             if affiliate_link:
-                description += f"\n{self.DISCLOSURE}"
+                description += f"\n<small>{self.DISCLOSURE}</small>"
 
             url = f"{self.base_url}/pins"
             payload = {

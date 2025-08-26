@@ -2,7 +2,7 @@ import os
 import html
 from dotenv import load_dotenv
 import requests
-from typing import List, Dict
+from typing import List
 
 from all_types import AffiliateLink, WordpressPost, WordpressCategory, WordpressTag
 from channel import Channel
@@ -103,7 +103,6 @@ class WordpressService(Channel):
         """
         Creates a 'Homepage' menu if it doesn't exist and returns its menu ID.
         Calls get_homepage_menu to check for an existing 'Homepage' menu.
-        If none exists, creates a new menu named 'Homepage' and attempts to assign it to the specified theme location.
         """
         try:
             # Create new 'Homepage' menu
@@ -163,7 +162,7 @@ class WordpressService(Channel):
             menu_id = self.get_homepage_menu()
             if menu_id is not None:
                 return menu_id
-            return self.create_homepage_menu(location="primary")
+            return self.create_homepage_menu()
         except Exception as e:
             self.logger.error(f"Error in get_homepage_menu_id: {e}")
             return 0
@@ -219,9 +218,9 @@ class WordpressService(Channel):
             )
             return []
 
-    def create_menu_items(self) -> List[int]:
+    def update_menu_items(self) -> List[int]:
         """
-        Create menu items for categories not already in the 'Homepage' menu.
+        Update menu items for categories not already in the 'Homepage' menu.
         """
         try:
             # Step 1: Get or create 'Homepage' menu
@@ -240,7 +239,7 @@ class WordpressService(Channel):
             categories = self.get_categories()
 
             if not categories:
-                self.logger.error("No categories found to create menu items")
+                self.logger.info("No categories found to create menu items")
                 return []
 
             self.logger.info(f"Categories: {[cat.name for cat in categories]}")
@@ -253,9 +252,7 @@ class WordpressService(Channel):
                 self.logger.info(f"All categories already in menu ID {menu_id}")
                 return []
 
-            self.logger.info(
-                f"New categories: {[cat.name.lower() for cat in new_categories]}"
-            )
+            self.logger.info(f"New categories: {[cat.name for cat in new_categories]}")
 
             # Step 5: Create menu items for missing categories
             menu_order = len(existing_titles) + 1
@@ -271,7 +268,7 @@ class WordpressService(Channel):
                     "status": "publish",
                     "type": "custom",  # Custom link for category archive
                     "object": "category",  # Reference to category
-                    "object_id": category.get("id", 0),  # Category ID
+                    "object_id": category.id,  # Category ID
                     "menus": menu_id,  # Assign to specified menu
                 }
                 self.logger.info(f"Creating menu item with payload: {payload}")
@@ -713,6 +710,7 @@ class WordpressService(Channel):
             ).split(",")
 
             for new_tag in new_tags:
+                self.logger.info(f"Creating tag: {new_tag.strip()}")
                 response = requests.post(
                     f"{self.api_url}/tags", headers=self.headers, json={"name": new_tag}
                 )
@@ -731,17 +729,28 @@ class WordpressService(Channel):
         self, title: str, affiliate_link: AffiliateLink, paragraph_count: int = 3
     ) -> str:
         try:
-            prompt = f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraph{'s' if paragraph_count > 1 else ''} and a conclusion, 50-80 words for introduction and conclusion, 100-150 words for each paragraph, 2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs, return the post content only"
+            prompt_splits = [
+                f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraphs and a conclusion",
+                f"50-80 words for introduction and conclusion, 100-150 words for each paragraph",
+                f"2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs",
+                f"Each paragraph is preceded by a title that summarizes the paragraph wrapped with the <h3><b></b></h3> tag instead of the <p></p> tag",
+                f"The last paragraph relates the content to {affiliate_link.product_title}, and explain why it is a good choice",
+                f"The conclusion should include a call to action",
+                f"Return the post content only",
+            ]
+            prompt = ". ".join(prompt_splits)
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
 
             if affiliate_link:
-                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>\n\n{self.DISCLOSURE}'
+                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>\n\n<small>{self.DISCLOSURE}</small>'
 
             if similar_posts:
                 content += "\n\n<h4><strong>Related Posts</strong></h4>\n"
                 for post in similar_posts:
-                    content += f'<a href="{post.link}">{post.title}</a><br>\n'
+                    content += (
+                        f'<a href="{post.link}" target="_blank">{post.title}</a><br>\n'
+                    )
 
             return content
         except Exception as e:
@@ -751,7 +760,7 @@ class WordpressService(Channel):
 
 if __name__ == "__main__":
     service = WordpressService()
-    new_menu_ids = service.create_menu_items()
+    new_menu_ids = service.update_menu_items()
     print(f"Created menu items: {new_menu_ids}")
 
     # html_content = service.get_navbar_html()
