@@ -157,26 +157,6 @@ class WordpressService(Channel):
             self.logger.error(f"Error parsing response: {e}")
             return []
 
-    def get_unique_categories(self) -> Dict[str, WordpressCategory]:
-        """
-        Retrieve unique categories from existing blog posts.
-        Returns a dictionary mapping category slugs to WordpressCategory objects.
-        """
-        try:
-            posts = self.get_posts()
-            categories = {}
-
-            for post in posts:
-                for category in post.categories:
-                    if category.slug not in categories:
-                        categories[category.slug] = category
-
-            return categories
-
-        except Exception as e:
-            self.logger.error(f"Error retrieving categories: {e}")
-            return {}
-
     def get_navbar_html(self) -> str:
         """
         Create a navigation bar with a tab for each unique category from existing blog posts.
@@ -234,14 +214,14 @@ class WordpressService(Channel):
            - **Performance**: This method avoids additional API calls or database queries, ensuring optimal performance.
         """
         try:
-            unique_categories = self.get_unique_categories()
+            categories = self.get_categories()
 
-            if not unique_categories:
+            if not categories:
                 return "No categories found"
 
             navbar_items = []
 
-            for category in unique_categories.values():
+            for category in categories:
                 category_url = self.frontend_url + f"/category/{category.slug}"
                 navbar_items.append(
                     f'<li><a href="{category_url}">{category.name}</a></li>'
@@ -480,10 +460,10 @@ class WordpressService(Channel):
 
 if __name__ == "__main__":
     service = WordpressService()
-    posts = service.get_posts()
-    print(f"Retrieved {len(posts)} posts.")
-    for post in posts:
-        for category in post.categories:
-            print(
-                f"Post ID: {post.id}, Category: {category.name}, Slug: {category.slug}"
-            )
+    posts = service.get_categories()
+    print([post["name"] for post in posts])
+    # for post in posts:
+    #     for category in post.categories:
+    #         print(
+    #             f"Post ID: {post.id}, Category: {category.name}, Slug: {category.slug}"
+    #         )
