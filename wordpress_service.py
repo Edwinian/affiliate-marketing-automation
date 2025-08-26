@@ -1,7 +1,8 @@
 import os
+import html
 from dotenv import load_dotenv
 import requests
-from typing import List
+from typing import List, Dict
 
 from all_types import AffiliateLink, WordpressPost, WordpressCategory, WordpressTag
 from channel import Channel
@@ -24,76 +25,125 @@ class WordpressService(Channel):
             "Authorization": f"Bearer {os.getenv('WORDPRESS_ACCESS_TOKEN')}",
         }
 
-    def get_menus(self, params: dict[str, str]):
-        self.logger.info(f"Fetching menus...")
-        url = f"{self.api_url}/menus"
-        response = requests.get(url, headers=self.headers, params=params)
-        response.raise_for_status()
-        menus = response.json()
-        return menus or []
+    def sanitize(self, title: str) -> str:
+        # WP may replace spaces with non-breaking spaces
+        return html.unescape(title).replace("\xa0", " ")
 
-    def get_homepage_menu_id(self) -> int:
+    def get_menus(self, params: dict[str, str] = None) -> List[dict]:
         """
-        Retrieves the menu ID OF THE homepage menu from WordPress.
+        Retrieves all navigation menus from WordPress with pagination.
         """
-        MENU_NAME = "Homepage"
-
         try:
-            params = {"search": MENU_NAME}
-            menus = self.get_menus(params)
-            homepage_menu = menus[0] if menus else None
+            menus = []
+            page = 1
+            per_page = 100
+            params = params or {}
 
-            if homepage_menu:
-                menu_id = homepage_menu.get("id", 0)
-                self.logger.info(f"Found '{MENU_NAME}' menu with ID {menu_id}")
-                return menu_id
+            while True:
+                self.logger.info(f"Fetching menus, page {page}...")
+                params.update({"page": str(page), "per_page": str(per_page)})
+                url = f"{self.api_url}/menus"
+                response = requests.get(url, headers=self.headers, params=params)
+                response.raise_for_status()
+                page_menus = response.json()
 
-            self.logger.info(f"No '{MENU_NAME}' menu found, creating one...")
-            return self.create_menu(name=MENU_NAME)
+                if not page_menus:
+                    break
+
+                menus.extend(page_menus)
+
+                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
+                if page >= total_pages:
+                    break
+                page += 1
+
+            self.logger.info(f"Retrieved {len(menus)} menus")
+            return menus
 
         except requests.RequestException as e:
             self.logger.error(
                 f"Error retrieving menus: {e}, "
-                f"Response: {e.response.text if e.response else 'No response'}"
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
+            )
+            return []
+        except ValueError as e:
+            self.logger.error(f"Error parsing menus response: {e}")
+            return []
+
+    def get_homepage_menu(self) -> int | None:
+        """
+        Retrieves the menu ID for a navigation menu named 'Homepage' from WordPress.
+        Uses the /wp/v2/menus endpoint to fetch all menus and searches for 'Homepage' (case-insensitive).
+        """
+        try:
+            self.logger.info("Fetching menus to find 'Homepage' menu...")
+            params = {"search": "Homepage"}
+            menus = self.get_menus(params)
+            menu_id = menus[0].get("id", 0) if menus else None
+
+            if menu_id:
+                self.logger.info(f"Found 'Homepage' menu with ID {menu_id}")
+                return menu_id
+
+            self.logger.info("No 'Homepage' menu found")
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error retrieving menus: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
             )
             return None
         except ValueError as e:
             self.logger.error(f"Error parsing menus response: {e}")
             return None
 
-    def create_menu(self, name: str, location: str = "primary") -> int:
+    def create_homepage_menu(self) -> int:
         """
-        Creates navbar menu
+        Creates a 'Homepage' menu if it doesn't exist and returns its menu ID.
+        Calls get_homepage_menu to check for an existing 'Homepage' menu.
+        If none exists, creates a new menu named 'Homepage' and attempts to assign it to the specified theme location.
         """
         try:
-            # Create new menu
-            self.logger.info(f"Creating new '{name}' menu...")
+            # Create new 'Homepage' menu
+            self.logger.info("Creating new 'Homepage' menu...")
             payload = {
-                "name": name,
-                "description": f"{name} menu",
-                "locations": [location],
+                "name": "Homepage",
+                "description": "Dynamic Homepage menu",
             }
+            # WordPress.com may not support 'locations' in the POST payload
+            # Try without 'locations' first
             response = requests.post(
                 f"{self.api_url}/menus", headers=self.headers, json=payload
             )
+            if response.status_code == 400:
+                self.logger.warning(
+                    "Menu creation failed, retrying without 'locations'..."
+                )
+                payload.pop("locations", None)
+                response = requests.post(
+                    f"{self.api_url}/menus", headers=self.headers, json=payload
+                )
+
             response.raise_for_status()
-            menu_id = response.json().get("id", 0)
+            menu_data = response.json()
+            menu_id = menu_data.get("id", 0)
 
             if menu_id:
-                self.logger.info(
-                    f"Created '{name}' menu with ID {menu_id}, assigned to location '{location}'"
-                )
+                self.logger.info(f"Created 'Homepage' menu with ID {menu_id}")
                 return menu_id
             else:
                 self.logger.error(
-                    f"Failed to retrieve ID for newly created '{name}' menu"
+                    "Failed to retrieve ID for newly created 'Homepage' menu"
                 )
                 return 0
 
         except requests.RequestException as e:
             self.logger.error(
                 f"Error creating 'Homepage' menu: {e}, "
-                f"Response: {e.response.text if e.response else 'No response'}"
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
             )
             return 0
         except ValueError as e:
@@ -102,11 +152,26 @@ class WordpressService(Channel):
             )
             return 0
 
+    def get_homepage_menu_id(self) -> int:
+        """
+        Retrieves the menu ID for the 'Homepage' menu or creates it if it doesn't exist.
+
+        Returns:
+            int: Menu ID of the 'Homepage' menu, 0 on error.
+        """
+        try:
+            menu_id = self.get_homepage_menu()
+            if menu_id is not None:
+                return menu_id
+            return self.create_homepage_menu(location="primary")
+        except Exception as e:
+            self.logger.error(f"Error in get_homepage_menu_id: {e}")
+            return 0
+
     def get_menu_items(self, menu_id: int) -> List[str]:
         """
         Retrieves all navigation menu item titles for a specified menu from WordPress.
         Uses the /wp/v2/menu-items endpoint with pagination to fetch all items.
-
         """
         try:
             menu_items = []
@@ -127,9 +192,9 @@ class WordpressService(Channel):
                     break
 
                 for item in page_items:
-                    title = item.get("title", "")
+                    title = item.get("title", {}).get("rendered", "")
                     if title:
-                        menu_items.append(title)
+                        menu_items.append(self.sanitize(title))
 
                 total_pages = int(response.headers.get("X-WP-TotalPages", 1))
                 if page >= total_pages:
@@ -144,7 +209,8 @@ class WordpressService(Channel):
         except requests.RequestException as e:
             self.logger.error(
                 f"Error retrieving menu items for menu ID {menu_id}: {e}, "
-                f"Response: {e.response.text if e.response else 'No response'}"
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
             )
             return []
         except ValueError as e:
@@ -153,32 +219,49 @@ class WordpressService(Channel):
             )
             return []
 
-    def update_menu_items(self) -> bool:
+    def create_menu_items(self) -> List[int]:
         """
-        Update menu items for categories not already in the specified menu.
+        Create menu items for categories not already in the 'Homepage' menu.
         """
         try:
-            # Step 1: Get all categories
-            categories = self.get_categories()
+            # Step 1: Get or create 'Homepage' menu
+            menu_id = self.get_homepage_menu_id()
+
+            if not menu_id:
+                self.logger.error("Failed to get or create 'Homepage' menu, aborting")
+                return []
 
             # Step 2: Get existing menu item titles
-            menu_id = self.get_homepage_menu_id()
             menu_items = self.get_menu_items(menu_id)
-            existing_titles = [title.lower() for title in menu_items]
+            existing_titles = [title for title in menu_items]
+            self.logger.info(f"Existing menu item titles: {existing_titles}")
 
-            # Step 3: Filter categories not in menu
+            # Step 3: Get all categories
+            categories = self.get_categories()
+
+            if not categories:
+                self.logger.error("No categories found to create menu items")
+                return []
+
+            self.logger.info(
+                f"Categories: {[cat.get('name', '') for cat in categories]}"
+            )
+
+            # Step 4: Filter categories not in menu
             new_categories = [
-                cat
-                for cat in categories
-                if cat.get("name", "").lower() not in existing_titles
+                cat for cat in categories if cat.get("name", "") not in existing_titles
             ]
-
             if not new_categories:
                 self.logger.info(f"All categories already in menu ID {menu_id}")
-                return True
+                return []
 
-            # Step 4: Create menu items for missing categories
+            self.logger.info(
+                f"New categories: {[cat.get('name', '').lower() for cat in new_categories]}"
+            )
+
+            # Step 5: Create menu items for missing categories
             menu_order = len(existing_titles) + 1
+            new_menu_ids = []
 
             for category in sorted(
                 new_categories, key=lambda x: x.get("name", "").lower()
@@ -197,16 +280,19 @@ class WordpressService(Channel):
                     "object_id": category.get("id", 0),  # Category ID
                     "menus": menu_id,  # Assign to specified menu
                 }
+                self.logger.info(f"Creating menu item with payload: {payload}")
                 response = requests.post(
                     f"{self.api_url}/menu-items", headers=self.headers, json=payload
                 )
                 response.raise_for_status()
                 menu_item_id = response.json().get("id", 0)
+
                 if menu_item_id:
                     self.logger.info(
                         f"Created menu item '{category_name}' (ID: {menu_item_id}) for menu ID {menu_id}"
                     )
                     menu_order += 1
+                    new_menu_ids.append(menu_item_id)
                 else:
                     self.logger.error(
                         f"Failed to create menu item for category '{category_name}'"
@@ -215,17 +301,18 @@ class WordpressService(Channel):
             self.logger.info(
                 f"Added {len(new_categories)} new menu items to menu ID {menu_id}"
             )
-            return True
+            return new_menu_ids
 
         except requests.RequestException as e:
             self.logger.error(
                 f"Error creating menu items for menu ID {menu_id}: {e}, "
-                f"Response: {e.response.text if e.response else 'No response'}"
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
             )
-            return False
+            return []
         except ValueError as e:
             self.logger.error(f"Error parsing response for menu items creation: {e}")
-            return False
+            return []
 
     def create_category(self, name: str, slug: str = "", description: str = "") -> int:
         try:
@@ -258,16 +345,19 @@ class WordpressService(Channel):
             self.logger.error(f"Error parsing response for category '{name}': {e}")
             return 0
 
-    def get_categories(self) -> List[str]:
+    def get_categories(self) -> List[Dict]:
         if self.CATEGORIES:
-            return self.CATEGORIES
+            self.CATEGORIES
 
         url = f"{self.api_url}/categories"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         categories = response.json() if response else []
-        self.CATEGORIES = categories
-        return categories
+        self.CATEGORIES = [
+            {**cat, "name": self.sanitize(cat.get("name", ""))} for cat in categories
+        ]
+        self.logger.info(f"Retrieved {len(self.CATEGORIES)} categories")
+        return self.CATEGORIES
 
     def get_category_ids(self, query_names: List[str]) -> List[int]:
         try:
@@ -367,54 +457,52 @@ class WordpressService(Channel):
 
         Usage: Manually Add Navbar HTML to Theme Files
 
-        To integrate the generated navbar HTML into your self-hosted WordPress site, follow these steps:
+        To integrate the generated navbar HTML into your WordPress.com site, follow these steps:
         1. **Generate the Navbar HTML**:
            - Run this method (e.g., via a local Python script or AWS Lambda) to obtain the HTML string.
            - Example command: `python script.py`
-           - Example output: `<nav class="dynamic-nav"><ul><li><a href="https://example.com/category/anime">Anime</a></li><li><a href="https://example.com/category/trends">Trends</a></li></ul></nav>`
+           - Example output: `<nav class="dynamic-nav"><ul><li><a href="https://edwinchan6.wordpress.com/category/anime">Anime</a></li><li><a href="https://edwinchan6.wordpress.com/category/trends">Trends</a></li></ul></nav>`
            - Copy the HTML string from the console or log output.
 
         2. **Access Theme Files**:
-           - Log in to your WordPress admin panel (e.g., https://example.com/wp-admin).
-           - Navigate to **Appearance > Theme File Editor** to edit your active theme's files.
-           - Alternatively, use an FTP client (e.g., FileZilla) to access the theme directory at `/wp-content/themes/your-theme/`.
-           - Recommended: Create a child theme to preserve changes during theme updates. In the child theme, copy `header.php` from the parent theme and modify it.
+           - Log in to your WordPress.com admin panel (e.g., https://edwinchan6.wordpress.com/wp-admin).
+           - Navigate to **Appearance > Theme Editor** to edit your active theme's files (if available, requires Business plan or higher).
+           - Alternatively, use a Custom HTML widget in **Appearance > Widgets** or **Appearance > Customize**.
+           - Note: WordPress.com restricts theme file editing on Free/Personal plans. Upgrade to Business if needed.
 
-        3. **Edit the Theme File**:
-           - Open `header.php` in the Theme File Editor or via FTP.
-           - Locate the existing navigation menu or the section where the navbar should appear (e.g., within `<header>` or `<nav>` tags).
-           - Replace or add the copied navbar HTML. Example:
+        3. **Edit the Theme or Widget**:
+           - If theme editing is available, open `header.php` in the Theme Editor.
+           - Locate the navigation menu section (e.g., within `<header>` or `<nav>` tags).
+           - Add the copied navbar HTML. Example:
              ```php
              <header>
                  <!-- Dynamic Navbar -->
                  <nav class="dynamic-nav">
                      <ul>
-                         <li><a href="https://example.com/category/anime">Anime</a></li>
-                         <li><a href="https://example.com/category/trends">Trends</a></li>
+                         <li><a href="https://edwinchan6.wordpress.com/category/anime">Anime</a></li>
+                         <li><a href="https://edwinchan6.wordpress.com/category/trends">Trends</a></li>
                      </ul>
                  </nav>
              </header>
              ```
-           - If your theme uses a navigation menu (e.g., `wp_nav_menu`), you can replace it with the static HTML or keep both, depending on your design.
-           - Save the changes in the Theme File Editor or upload the modified `header.php` via FTP.
+           - If theme editing is restricted, add the HTML to a Custom HTML widget in **Appearance > Widgets** or **Customize > Widgets**.
+           - Save changes.
 
         4. **Verify the Navbar**:
-           - Visit your site (e.g., https://example.com) to ensure the navbar appears correctly.
-           - Click each category link (e.g., https://example.com/category/anime) to confirm it loads the correct category archive page.
-           - If the navbar doesn’t display as expected, check for theme-specific wrappers or conflicting CSS.
+           - Visit your site (e.g., https://edwinchan6.wordpress.com) to ensure the navbar appears correctly.
+           - Click each category link to confirm it loads the correct category archive page.
+           - If the navbar doesn’t display, check for theme-specific CSS conflicts or widget placement.
 
         5. **Update Process**:
-           - When new categories are added or removed, rerun this method to generate updated HTML.
-           - Copy the new HTML and manually update `header.php` in the Theme File Editor or via FTP.
-           - To streamline updates, consider saving the HTML to a local file (e.g., `navbar.html`) and copy-paste it into `header.php` as needed.
-           - Frequency: This manual process is suitable if categories change infrequently. For frequent changes, consider a programmatic approach (not recommended here due to performance concerns).
+           - When new categories are added, rerun this method to generate updated HTML.
+           - Update the Custom HTML widget or theme file manually.
+           - Frequency: Suitable for infrequent updates. For frequent changes, consider manual menu management via **Appearance > Menus**.
 
         6. **Notes**:
-           - **Child Theme**: Using a child theme prevents loss of changes during parent theme updates. Create one via **Appearance > Theme File Editor** or FTP by following WordPress child theme documentation.
-           - **Permalinks**: The `link` field in `WordpressCategory` ensures correct category URLs (e.g., `https://example.com/category/anime`), even with custom permalinks set in **Settings > Permalinks**.
-           - **Backup**: Before editing theme files, back up `header.php` and the theme directory to avoid accidental data loss.
-           - **Alternative Files**: If your theme uses a different template for the header (e.g., `template-parts/header.php`), locate it in the Theme File Editor or FTP and add the HTML there.
-           - **Performance**: This method avoids additional API calls or database queries, ensuring optimal performance.
+           - **Plan Limitations**: Free/Personal plans may restrict theme editing. Use a Custom HTML widget or upgrade to Business.
+           - **Permalinks**: The `link` field ensures correct category URLs (e.g., `https://edwinchan6.wordpress.com/category/anime`).
+           - **Backup**: Save a copy of the HTML before making changes.
+           - **Performance**: This method avoids API calls during page loads, ensuring optimal performance.
         """
         try:
             categories = self.get_categories()
@@ -425,9 +513,11 @@ class WordpressService(Channel):
             navbar_items = []
 
             for category in categories:
-                category_url = self.frontend_url + f"/category/{category.slug}"
+                category_url = (
+                    f"{self.frontend_url}/category/{category.get('slug', '')}"
+                )
                 navbar_items.append(
-                    f'<li><a href="{category_url}">{category.name}</a></li>'
+                    f'<li><a href="{category_url}">{self.sanitize(category.get("name", ""))}</a></li>'
                 )
 
             navbar_html = (
@@ -568,12 +658,12 @@ class WordpressService(Channel):
                 else:
                     return []
 
-            simila_posts = [
+            similar_posts = [
                 post
                 for post in all_posts
                 if str(post.id) in similar_post_ids_str and post.title != title
             ]
-            return simila_posts
+            return similar_posts
         except Exception as e:
             self.logger.error(f"Error finding similar posts: {e}")
             return []
@@ -618,7 +708,7 @@ class WordpressService(Channel):
             self.logger.error(f"Error finding similar tags: {e}")
             return []
 
-    def create_tags(self, title: str) -> list[int]:
+    def create_tags(self, title: str) -> List[int]:
         try:
             tag_ids = []
             new_tags = self.llm_service.generate_text(
@@ -644,7 +734,7 @@ class WordpressService(Channel):
         self, title: str, affiliate_link: AffiliateLink, paragraph_count: int = 3
     ) -> str:
         try:
-            prompt = f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraph{"s" if paragraph_count > 1 else ""} and a conclusion, 50-80 words for introduction and conclusion, 100-150 words for each paragraph, 2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs, return the post content only"
+            prompt = f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraph{'s' if paragraph_count > 1 else ''} and a conclusion, 50-80 words for introduction and conclusion, 100-150 words for each paragraph, 2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs, return the post content only"
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
 
@@ -659,14 +749,13 @@ class WordpressService(Channel):
             return content
         except Exception as e:
             self.logger.error(f"Error generating content: {e}")
+            return ""
 
 
 if __name__ == "__main__":
     service = WordpressService()
-    posts = service.get_categories()
-    print([post["name"] for post in posts])
-    # for post in posts:
-    #     for category in post.categories:
-    #         print(
-    #             f"Post ID: {post.id}, Category: {category.name}, Slug: {category.slug}"
-    #         )
+    new_menu_ids = service.create_menu_items()
+    print(f"Created menu items: {new_menu_ids}")
+
+    # html_content = service.get_navbar_html()
+    # print(f"Navbar HTML:\n{html_content}")
