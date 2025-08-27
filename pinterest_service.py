@@ -25,7 +25,7 @@ class PinterestService(Channel):
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
 
-    def get_top_trends(self, top_k: int = 3) -> List[str]:
+    def get_keywords(self) -> List[str]:
         """
         Retrieves the top trends from Pinterest by each trend type.
         Counts occurrences of each trend type and returns the top 'limit' trend names by count.
@@ -66,7 +66,7 @@ class PinterestService(Channel):
         )
 
         # Return the top 'limit' trend names
-        return [trend for trend, _ in sorted_trends[:top_k]]
+        return [trend for trend, _ in sorted_trends[: self.KEYWORD_LIMIT]]
 
     def is_token_valid(self) -> bool:
         url = "https://api.pinterest.com/v5/user_account"
@@ -283,5 +283,5 @@ class PinterestService(Channel):
 
 if __name__ == "__main__":
     service = PinterestService()
-    result = service.get_top_trends()
+    result = service.get_keywords()
     print(result)

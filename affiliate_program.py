@@ -21,6 +21,7 @@ class AffiliateProgram(ABC):
         WordpressService(),
         # PinterestService(),
     ]
+    PROGRAM_KEYWORDS_MAP: dict[str, list[str]] = {}
 
     def __init__(self):
         self.program_name = self.__class__.__name__
@@ -29,9 +30,6 @@ class AffiliateProgram(ABC):
         self.llm_service = LlmService()
         self.media_service = MediaService()
         self.pinterest_service = PinterestService()
-        self.keywords_map = {
-            "PinterestService": self.pinterest_service.get_top_trends(top_k=3),
-        }
 
     @abstractmethod
     def get_affiliate_links(self, keywords: List[str]) -> list[AffiliateLink]:
@@ -56,15 +54,13 @@ class AffiliateProgram(ABC):
             return f"{affiliate_link.categories[0]}"
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
-        keywords = self.keywords_map.get(self.program_name, [])
+        keywords = self.PROGRAM_KEYWORDS_MAP.get(self.program_name, [])
 
         for i, channel in enumerate(self.CHANNELS):
             channel_name = channel.__class__.__name__
 
             if not keywords:
-                keywords = self.keywords_map.get(
-                    channel_name, []
-                ) or self.get_keywords_from_model(limit=3)
+                keywords = channel.get_keywords()
 
             affiliate_links = custom_links or self.get_affiliate_links(
                 keywords=keywords

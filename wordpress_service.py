@@ -757,6 +757,9 @@ class WordpressService(Channel):
             self.logger.error(f"Error generating content: {e}")
             return ""
 
+    def get_keywords(self) -> List[str]:
+        return self.get_keywords_from_model()
+
 
 if __name__ == "__main__":
     service = WordpressService()
