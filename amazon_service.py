@@ -1,3 +1,4 @@
+from ast import List
 from dotenv import load_dotenv
 from amazon_paapi import models, AmazonApi
 
@@ -15,17 +16,13 @@ class AmazonService(AffiliateProgram):
         super().__init__()
         self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
-    def get_affiliate_links(self, limit: int = 2) -> list[AffiliateLink]:
+    def get_affiliate_links(self, keywords: List[str]) -> list[AffiliateLink]:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews for each keyword.
         Returns an AffiliateLink dataclass with the URL, review count, and product category.
         """
 
         try:
-            keywords = self.llm_service.generate_text(
-                f"what is the best amazon affiliate product to promote nowadays? Give me {limit} keywords to search, separated by comma to be split into list of string in python, return keywords only"
-            )
-            keywords = keywords.split(",")
             affiliate_links = []
 
             # Get the best affiliate link based on the number of reviews for each keyword

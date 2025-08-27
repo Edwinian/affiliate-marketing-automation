@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List
 
 from all_types import AffiliateLink
 from channel import Channel
@@ -22,17 +23,29 @@ class AffiliateProgram(ABC):
     ]
 
     def __init__(self):
-        log_name = self.__class__.__name__
+        self.program_name = self.__class__.__name__
+        log_name = self.program_name
         self.logger = LoggerService(name=log_name)
         self.llm_service = LlmService()
         self.media_service = MediaService()
+        self.pinterest_service = PinterestService()
+        self.keywords_map = {
+            "PinterestService": self.pinterest_service.get_top_trends(top_k=3),
+        }
 
     @abstractmethod
-    def get_affiliate_links(self) -> list[AffiliateLink]:
+    def get_affiliate_links(self, keywords: List[str]) -> list[AffiliateLink]:
         """
         Abstract method to be implemented by subclasses for getting affiliate link.
         """
         pass
+
+    def get_keywords_from_model(self, limit: int = 2) -> list[str]:
+        keywords = self.llm_service.generate_text(
+            f"what are the best affiliate products to promote nowadays? Give me {limit} keywords to search for, separated by comma to be split into list of string in python, return keywords only"
+        )
+        keywords = keywords.split(",")
+        return keywords
 
     def get_title(self, affiliate_link: AffiliateLink) -> str:
         try:
@@ -43,22 +56,35 @@ class AffiliateProgram(ABC):
             return f"{affiliate_link.categories[0]}"
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
-        affiliate_links = custom_links or self.get_affiliate_links()
-        unused_links = self.media_service.get_unused_affiliate_links(affiliate_links)
+        keywords = self.keywords_map.get(self.program_name, [])
 
-        if not unused_links:
-            self.logger.warning("No affiliate links available.")
-            return
+        for i, channel in enumerate(self.CHANNELS):
+            channel_name = channel.__class__.__name__
 
-        for link in unused_links:
-            try:
-                title = self.get_title(link)
-                image_urls = self.media_service.get_image_urls(
-                    query=title, limit=len(self.CHANNELS)
-                )
-                create_fail_exist = False
+            if not keywords:
+                keywords = self.keywords_map.get(
+                    channel_name, []
+                ) or self.get_keywords_from_model(limit=3)
 
-                for i, channel in enumerate(self.CHANNELS):
+            affiliate_links = custom_links or self.get_affiliate_links(
+                keywords=keywords
+            )
+            unused_links = self.media_service.get_unused_affiliate_links(
+                affiliate_links
+            )
+
+            if not unused_links:
+                self.logger.info(f"No unused affiliate links for {channel_name}.")
+                continue
+
+            for link in unused_links:
+                try:
+                    title = self.get_title(link)
+                    image_urls = self.media_service.get_image_urls(
+                        query=title, limit=len(self.CHANNELS)
+                    )
+                    create_fail_exist = False
+
                     try:
                         channel_name = channel.__class__.__name__
                         content_id = channel.create(
@@ -79,7 +105,7 @@ class AffiliateProgram(ABC):
                             f"Error executing cron for channel {channel.__class__.__name__}: {e}"
                         )
 
-                if not create_fail_exist:
-                    self.media_service.add_affiliate_link(link.url)
-            except Exception as e:
-                self.logger.error(f"Error executing cron for link {link.url}: {e}")
+                    if not create_fail_exist:
+                        self.media_service.add_affiliate_link(link.url)
+                except Exception as e:
+                    self.logger.error(f"Error executing cron for link {link.url}: {e}")
