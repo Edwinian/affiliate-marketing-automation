@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv
 from all_types import AffiliateLink
 from channel import Channel
+from enums import PinterestTrendType
 
 load_dotenv()  # Loads the .env file
 
@@ -23,6 +24,49 @@ class PinterestService(Channel):
             self.logger.warning("Access token is invalid, attempting to refresh.")
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
+
+    def get_top_trends(self, top_k: int = 3) -> List[str]:
+        """
+        Retrieves the top trends from Pinterest by each trend type.
+        Counts occurrences of each trend type and returns the top 'limit' trend names by count.
+        """
+        trend_count: Dict[str, int] = {}
+
+        def _get_trends(trend_type: PinterestTrendType):
+            try:
+                url = f"{self.base_url}/trends/keywords/US/top/{trend_type}?limit=20"
+                response = requests.get(url, headers=self.headers)
+                response.raise_for_status()
+                data = response.json()
+                trends = data.get("trends", [])
+                trend_names = [trend.get("keyword", None) for trend in trends]
+                return [name for name in trend_names if name is not None]
+            except requests.RequestException as e:
+                self.logger.error(f"Error fetching trends: {e}")
+                return []
+                trends = data.get("trends", [])
+                trend_names = [trend.get("keyword", "") for trend in trends]
+                return trend_names
+            except requests.RequestException as e:
+                self.logger.error(f"Error fetching trends: {e}")
+                return []
+
+        for trend_type in PinterestTrendType:
+            trends = _get_trends(trend_type)
+            for trend in trends:
+                trend_count[trend] = trend_count.get(trend, 0) + 1
+
+        # Sort trends by count (descending) and then by word count (descending) for ties
+        sorted_trends = sorted(
+            trend_count.items(),
+            key=lambda x: (
+                -x[1],
+                -len(x[0].split()),
+            ),
+        )
+
+        # Return the top 'limit' trend names
+        return [trend for trend, _ in sorted_trends[:top_k]]
 
     def is_token_valid(self) -> bool:
         url = "https://api.pinterest.com/v5/user_account"
@@ -239,5 +283,5 @@ class PinterestService(Channel):
 
 if __name__ == "__main__":
     service = PinterestService()
-    result = service.get_pinterest_auth_url()
+    result = service.get_top_trends()
     print(result)

@@ -33,3 +33,10 @@ class CustomLinksKey(StrEnum):
 class LlmErrorPrompt(StrEnum):
     QUOTA_EXCEEDED = "insufficient credits"
     LENGTH_EXCEEDED = "prompt length exceeded"
+
+
+class PinterestTrendType(StrEnum):
+    QUARTER = "growing"  # high upward growth in search volume over the last quarter
+    MONTHLY = "monthly"  # high search volume in the last month
+    YEARLY = "yearly"  # high search volume in the last year
+    SEASONAL = "seasonal"  # high upward growth in search volume over the last month and exhibit a seasonal recurring pattern
