@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 import uuid
 import requests
@@ -31,7 +31,7 @@ class PinterestService(Channel):
                 self.logger.error("Failed to refresh access token.")
 
     def get_bulk_create_from_affiliate_links_csv(
-        self, affiliate_links: List[AffiliateLink]
+        self, affiliate_links: List[AffiliateLink], all_publish_delay_min: int = 0
     ):
         channel_name = self.__class__.__name__
         unused_links = self.media_service.get_unused_affiliate_links(
@@ -42,35 +42,53 @@ class PinterestService(Channel):
             return self.logger.info(f"No unused affiliate links.")
 
         csv_data = []
+        all_pins = self.get_pins()
+        pin_titles = [pin.title for pin in all_pins]
+        pin_links = [pin.link for pin in all_pins]
 
-        for affiliate_link in unused_links[: self.BULK_CREATE_LIMIT]:
+        for i, affiliate_link in enumerate(unused_links[: self.BULK_CREATE_LIMIT]):
             try:
                 title = self.get_title(affiliate_link)
-                image_urls = self.media_service.get_image_urls(query=title, limit=1)
-                image_url = image_urls[0] if image_urls else ""
+                link = affiliate_link.url
+                csv_titles = [row["Title"] for row in csv_data]
 
-                if not image_url:
-                    self.logger.warning(f"No image found for post '{title}'")
+                if title in csv_titles:
+                    self.logger.info(f"'{title}' already in CSV, skipping.")
                     continue
 
-                link = affiliate_link.url
+                if title in pin_titles or link in pin_links:
+                    self.logger.info(
+                        f"Affiliate link '{link}' already has a pin, skipping."
+                    )
+                    continue
+
                 category = (
                     affiliate_link.categories[0]
                     if affiliate_link.categories
                     else "Others"
                 )
                 board_id = self._get_board_id(category)
-                description = self.get_pin_description(title)
 
-                csv_data.append(
-                    {
-                        "board_id": board_id,
-                        "title": title,
-                        "description": description,
-                        "link": link,
-                        "image_url": image_url,
-                    }
+                if not board_id:
+                    self.logger.warning(f"No valid board for category '{category}'")
+                    continue
+
+                # Publish pin with 1 min apart to avoid potential spam flag from Pinterest
+                data_row = self.get_csv_row_data(
+                    title=title,
+                    category=category,
+                    link=link,
+                    publish_delay_min=all_publish_delay_min + i * 15,
                 )
+
+                if not data_row:
+                    continue
+
+                self.logger.info(
+                    f"Prepared csv pin data - Title: {title}, Board ID: {board_id}, Link: {link}"
+                )
+
+                csv_data.append(data_row)
             except Exception as e:
                 self.logger.error(
                     f"Error executing cron for link {affiliate_link.url}: {e}"
@@ -86,10 +104,14 @@ class PinterestService(Channel):
 
         return f"CSV generation {'succeeded' if success else 'failed'} for affiliate links."
 
-    def generate_csv(self, csv_data: list[Dict[str, Any]]) -> bool:
+    def generate_csv(self, csv_data: List[Dict[str, Any]]) -> str:
+        """
+        Generates a CSV file for bulk pin creation with Pinterest-compatible headers.
+        Returns the file path or empty string on failure.
+        """
         if not csv_data:
             self.logger.info("No valid pin data to write to CSV.")
-            return False
+            return ""
 
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -97,84 +119,150 @@ class PinterestService(Channel):
             with open(
                 csv_file_path, mode="w", newline="", encoding="utf-8"
             ) as csv_file:
-                fieldnames = ["board_id", "title", "description", "link", "image_url"]
+                fieldnames = [
+                    "Title",
+                    "Media URL",
+                    "Pinterest board",
+                    "Description",
+                    "Link",
+                    "Publish date",
+                    "Keywords",
+                ]
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                 writer.writeheader()
                 for row in csv_data:
                     writer.writerow(row)
-
             self.logger.info(f"CSV file created successfully: {csv_file_path}")
-            return True
-
+            return csv_file_path
         except Exception as e:
             self.logger.error(f"Error writing CSV file: {e}")
-            return False
+            return ""
 
-    def get_bulk_create_from_posts_csv(self):
+    def get_csv_row_data(
+        self,
+        title: str,
+        category: str,
+        link: str,
+        publish_delay_min=0,
+    ):
+        image_urls = self.media_service.get_image_urls(query=title, limit=1)
+
+        if not image_urls:
+            self.logger.warning(f"No image found for '{title}'")
+            return
+
+        image_url = image_urls[0]
+        publish_date = (datetime.now() + timedelta(minutes=publish_delay_min)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        keywords = self.get_keywords(
+            limit=5, include_keywords=[title]
+        )  # Use top 5 keywords for SEO
+        description = self.get_pin_description(title)
+
+        return {
+            "Title": title[:100],  # Pinterest recommends max 100 chars
+            "Media URL": image_url,
+            "Pinterest board": category,
+            "Description": description,
+            "Link": link,
+            "Publish date": publish_date,
+            "Keywords": ",".join(keywords),
+        }
+
+    def get_bulk_create_from_posts_csv(self, all_publish_delay_min: int = 0) -> str:
+        """
+        Generates a CSV for bulk creating pins from WordPress posts without pins.
+        Returns the CSV file path or empty string if no pins are needed or an error occurs.
+        """
         all_posts = self.wordpress_service.get_posts()
         all_pins = self.get_pins()
+        pin_titles = [pin.title for pin in all_pins]
         pin_links = [pin.link for pin in all_pins]
-        posts_with_no_pins = [post for post in all_posts if post.link not in pin_links]
+        posts_with_no_pins = [
+            post
+            for post in all_posts
+            if post.link not in pin_links and post.title not in pin_titles
+        ]
 
         if not posts_with_no_pins:
-            return self.logger.info("All posts already have corresponding pins.")
+            self.logger.info("All posts already have corresponding pins.")
+            return ""
 
         csv_data = []
 
-        for post in posts_with_no_pins[: self.BULK_CREATE_LIMIT]:
+        for i, post in enumerate(posts_with_no_pins[: self.BULK_CREATE_LIMIT]):
             try:
                 title = post.title
-                image_urls = self.media_service.get_image_urls(query=title, limit=1)
-                image_url = image_urls[0] if image_urls else ""
+                csv_titles = [row["Title"] for row in csv_data]
 
-                if not image_url:
-                    self.logger.warning(f"No image found for post '{title}'")
+                if title in csv_titles:
+                    self.logger.info(f"'{title}' already in CSV, skipping.")
                     continue
 
-                link = post.link
                 category = post.categories[0].name if post.categories else "Others"
+                link = post.link
                 board_id = self._get_board_id(category)
-                description = self.get_pin_description(title)
 
-                csv_data.append(
-                    {
-                        "board_id": board_id,
-                        "title": title,
-                        "description": description,
-                        "link": link,
-                        "image_url": image_url,
-                    }
+                if not board_id:
+                    self.logger.warning(f"No valid board for category '{category}'")
+                    continue
+
+                # Publish pin with 15 min apart to avoid potential spam flag from Pinterest
+                data_row = self.get_csv_row_data(
+                    title=title,
+                    category=category,
+                    link=link,
+                    publish_delay_min=all_publish_delay_min + i * 15,
                 )
 
+                if not data_row:
+                    continue
+
+                self.logger.info(
+                    f"Prepared CSV pin data - Title: {title}, Board ID: {board_id}, Link: {link}"
+                )
+
+                csv_data.append(data_row)
             except Exception as e:
                 self.logger.error(f"Error processing post '{post.title}': {e}")
                 continue
 
-        success = self.generate_csv(csv_data)
-        return f"CSV generation {'succeeded' if success else 'failed'} for posts without pins."
+        return self.generate_csv(csv_data)
 
-    def get_keywords(self) -> list[str]:
+    def get_keywords(
+        self, limit: int = 2, include_keywords: List[str] = []
+    ) -> list[str]:
         """
         Retrieves the top trends from Pinterest by each trend type.
         Counts occurrences of each trend type and returns the top 'limit' trend names by count.
+
+        Args:
+            limit: Number of top trends to return
+            include_keywords: Optional list of keywords to include in the trends results
         """
         trend_count: Dict[str, int] = {}
 
         def _get_trends(trend_type: PinterestTrendType):
             try:
+                # Build the base URL
                 url = f"{self.base_url}/trends/keywords/US/top/{trend_type}?limit=20"
+
+                # Add include_keywords parameter if provided
+                if include_keywords:
+                    # URL encode each keyword and join with commas
+                    encoded_keywords = [
+                        requests.utils.quote(keyword) for keyword in include_keywords
+                    ]
+                    keywords_param = ",".join(encoded_keywords)
+                    url += f"&include_keywords={keywords_param}"
+
                 response = requests.get(url, headers=self.headers)
                 response.raise_for_status()
                 data = response.json()
                 trends = data.get("trends", [])
                 trend_names = [trend.get("keyword", None) for trend in trends]
                 return [name for name in trend_names if name is not None]
-            except requests.RequestException as e:
-                self.logger.error(f"Error fetching trends: {e}")
-                return []
-                trends = data.get("trends", [])
-                trend_names = [trend.get("keyword", "") for trend in trends]
-                return trend_names
             except requests.RequestException as e:
                 self.logger.error(f"Error fetching trends: {e}")
                 return []
@@ -194,7 +282,7 @@ class PinterestService(Channel):
         )
 
         # Return the top 'limit' trend names
-        return [trend for trend, _ in sorted_trends[: self.KEYWORD_LIMIT]]
+        return [trend for trend, _ in sorted_trends[:limit]]
 
     def is_token_valid(self) -> bool:
         url = "https://api.pinterest.com/v5/user_account"
@@ -304,9 +392,6 @@ class PinterestService(Channel):
             return ""
 
     def get_pins(self) -> list[Pin]:
-        """
-        Calls Pinterest API and returns a list of the top 3 latest pins.
-        """
         try:
             url = f"{self.base_url}/pins"
             response = requests.get(url, headers=self.headers)
@@ -415,7 +500,7 @@ class PinterestService(Channel):
         try:
             description = self.llm_service.generate_text(prompt)
             description += f"\n<small>{self.DISCLOSURE}</small>"
-            return description
+            return description[:500]
         except Exception as e:
             self.logger.error(f"Error generating description: {e}")
             return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!"
@@ -423,5 +508,5 @@ class PinterestService(Channel):
 
 if __name__ == "__main__":
     service = PinterestService()
-    result = service.get_pins()
+    result = service.get_bulk_create_from_posts_csv()
     print(result)

@@ -419,15 +419,17 @@ class WordpressService(Channel):
                                     categories.append(
                                         WordpressCategory(
                                             id=term.get("id", 0),
-                                            name=term.get("name", ""),
+                                            name=self.sanitize(term.get("name", "")),
                                             slug=term.get("slug", ""),
                                         )
                                     )
 
                     post_data = WordpressPost(
                         id=post.get("id", 0),
-                        title=post.get("title", {}).get("rendered", ""),
-                        content=post.get("content", {}).get("rendered", ""),
+                        title=self.sanitize(post.get("title", {}).get("rendered", "")),
+                        content=self.sanitize(
+                            post.get("content", {}).get("rendered", "")
+                        ),
                         link=post.get("link", ""),
                         date=post.get("date", ""),
                         status=post.get("status", ""),

@@ -9,7 +9,6 @@ from media_service import MediaService
 
 class Channel(ABC):
     DISCLOSURE = "Disclosure: We do not work for any company of the products or services mentioned. At no extra cost to you, we may earn a small commission from purchases made through links here. This income helps support creating more content for you. Thank you for your support!"
-    KEYWORD_LIMIT = 2
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
@@ -24,9 +23,9 @@ class Channel(ABC):
             self.logger.info(f"Error generating title: {e}")
             return f"{affiliate_link.categories[0]}"
 
-    def get_keywords(self) -> list[str]:
+    def get_keywords(self, limit: int = 2) -> list[str]:
         keywords = self.llm_service.generate_text(
-            f"what are the best affiliate products to promote nowadays? Give me {self.KEYWORD_LIMIT} keywords to search for, separated by comma to be split into list of string in python, return keywords only"
+            f"what are the best affiliate products to promote nowadays? Give me {limit} keywords to search for, separated by comma to be split into list of string in python, return keywords only"
         )
         keywords = keywords.split(",")
         return keywords
