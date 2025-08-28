@@ -4,6 +4,7 @@ import requests
 from dotenv import load_dotenv
 
 from all_types import AffiliateLink
+from aws_service import AWSService
 from logger_service import LoggerService
 
 load_dotenv()
@@ -14,6 +15,7 @@ class MediaService:
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
+        self.aws_service = AWSService()
 
     def fetch_image_urls(
         self,
@@ -78,21 +80,17 @@ class MediaService:
 
     def add_affiliate_links(self, channel_name: str, urls: list[str] = []) -> None:
         """
-        Write an affiliate link to used_links.txt file in the same directory.
+        Write an affiliate link to AWS S3
         """
         if not urls:
             return
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
-
-            with open(file_path, "a", encoding="utf-8") as file:
-                formatted_links = [
-                    f"{self.get_formatted_link(url, channel_name)}\n" for url in urls
-                ]
-                file.writelines(formatted_links)
-
-            self.logger.info(f"Affiliate links recorded: {urls}")
+            formatted_links = [
+                self.get_formatted_link(url, channel_name) for url in urls
+            ]
+            success = self.aws_service.add_used_affiliate_links(links=formatted_links)
+            self.logger.info(f"Affiliate links recorded {success}: {urls}")
         except Exception as e:
             self.logger.error(f"Error writing affiliate link to file: {str(e)}")
 
@@ -103,7 +101,7 @@ class MediaService:
         self, affiliate_links: list[AffiliateLink] = [], channel_name: str = ""
     ) -> list[AffiliateLink]:
         """
-        Check if an affiliate link already exists in used_links.txt file.
+        Check if an affiliate link already exists in AWS S3
 
         Args:
             affiliate_link (str): The affiliate link to check
@@ -118,22 +116,17 @@ class MediaService:
             return unused_links
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
+            used_links = self.aws_service.get_used_affiliate_links()
 
-            # Check if file exists first
-            if not os.path.exists(file_path):
-                return False
-
-            # Read all links from the file
-            with open(file_path, "r", encoding="utf-8") as file:
-                existing_links = file.read().splitlines()
+            if not used_links:
+                return affiliate_links
 
             for link in affiliate_links:
                 formatted_link = self.get_formatted_link(
                     url=link.url, channel_name=channel_name
                 )
 
-                if formatted_link not in existing_links:
+                if formatted_link not in used_links:
                     unused_links.append(link)
         except Exception as e:
             self.logger.error(f"Error reading affiliate links file: {str(e)}")
