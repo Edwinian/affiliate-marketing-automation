@@ -10,6 +10,7 @@ load_dotenv()
 
 class AmazonService(AffiliateProgram):
     CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
+    IS_PIN = True
 
     def __init__(self):
         super().__init__()

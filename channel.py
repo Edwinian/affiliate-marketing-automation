@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from all_types import AffiliateLink
+from all_types import AffiliateLink, CreateChannelResponse
 from llm_service import LlmService
 from logger_service import LoggerService
 
@@ -24,7 +24,7 @@ class Channel(ABC):
     @abstractmethod
     def create(
         self, title: str, affiliate_link: AffiliateLink, image_url: Optional[str] = None
-    ) -> str:
+    ) -> CreateChannelResponse:
         """
         Creates content on the channel with the given image, trend, and optional affiliate link.
 

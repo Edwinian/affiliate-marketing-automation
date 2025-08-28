@@ -17,16 +17,18 @@ class MediaService:
 
     def fetch_image_urls(
         self,
+        limit: int,
         query: Optional[str] = None,
         size="original",
-        limit: int = 1,
         next_page: Optional[str] = None,
     ) -> Optional[list[str]]:
         """
         Fetch image URLs from Pexels API with pagination.
         """
+        per_page_limit = 80
+        limit = limit or per_page_limit
         url = "https://api.pexels.com/v1/search"
-        params = {"query": query, "per_page": 80}
+        params = {"query": query, "per_page": per_page_limit}
 
         try:
             response = (
@@ -62,9 +64,9 @@ class MediaService:
 
     def get_image_urls(
         self,
+        limit: int,
         query: Optional[str] = None,
         size="original",
-        limit: int = 1,
     ) -> Optional[list[str]]:
         if len(self.fetched_image_urls) < limit:
             self.fetch_image_urls(query=query, size=size, limit=limit)
@@ -74,23 +76,31 @@ class MediaService:
         self.fetched_image_urls = self.fetched_image_urls[used_count:]
         return image_urls
 
-    def add_affiliate_link(self, affiliate_link: str) -> None:
+    def add_affiliate_links(self, channel_name: str, urls: list[str] = []) -> None:
         """
         Write an affiliate link to used_links.txt file in the same directory.
-
-        Args:
-            affiliate_link (str): The affiliate link to record
         """
+        if not urls:
+            return
+
         try:
             file_path = os.path.join(os.path.dirname(__file__), "used_links.txt")
+
             with open(file_path, "a", encoding="utf-8") as file:
-                file.write(f"{affiliate_link}\n")
-            self.logger.info(f"Affiliate link recorded: {affiliate_link}")
+                formatted_links = [
+                    f"{self.get_formatted_link(url, channel_name)}\n" for url in urls
+                ]
+                file.writelines(formatted_links)
+
+            self.logger.info(f"Affiliate links recorded: {urls}")
         except Exception as e:
             self.logger.error(f"Error writing affiliate link to file: {str(e)}")
 
+    def get_formatted_link(self, url: str, channel_name: str) -> str:
+        return f"{url} - {channel_name}"
+
     def get_unused_affiliate_links(
-        self, affiliate_links: list[AffiliateLink] = []
+        self, affiliate_links: list[AffiliateLink] = [], channel_name: str = ""
     ) -> list[AffiliateLink]:
         """
         Check if an affiliate link already exists in used_links.txt file.
@@ -119,9 +129,12 @@ class MediaService:
                 existing_links = file.read().splitlines()
 
             for link in affiliate_links:
-                if link.url not in existing_links:
-                    unused_links.append(link)
+                formatted_link = self.get_formatted_link(
+                    url=link.url, channel_name=channel_name
+                )
 
+                if formatted_link not in existing_links:
+                    unused_links.append(link)
         except Exception as e:
             self.logger.error(f"Error reading affiliate links file: {str(e)}")
             return False

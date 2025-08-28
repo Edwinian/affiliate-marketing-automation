@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -31,3 +31,9 @@ class WordpressPost:
 class WordpressTag:
     id: int
     name: str
+
+
+@dataclass
+class CreateChannelResponse:
+    id: str
+    url: Optional[str] = None

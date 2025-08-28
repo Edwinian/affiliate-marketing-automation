@@ -19,9 +19,10 @@ class AffiliateProgram(ABC):
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
     CHANNELS: list[Channel] = [
         WordpressService(),
-        # PinterestService(),
+        # PinterestService(), # Creating max 30 pins per week only, so cron job is not needed
     ]
     PROGRAM_KEYWORDS_MAP: dict[str, list[str]] = {}
+    IS_PIN = False
 
     def __init__(self):
         self.program_name = self.__class__.__name__
@@ -54,54 +55,64 @@ class AffiliateProgram(ABC):
             return f"{affiliate_link.categories[0]}"
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
-        keywords = self.PROGRAM_KEYWORDS_MAP.get(self.program_name, [])
+        affiliate_links = custom_links
+        link_images_map: dict[str, list[str]] = {}
 
         for i, channel in enumerate(self.CHANNELS):
+            created_link_urls: list[str] = []
             channel_name = channel.__class__.__name__
+            self.logger.set_prefix(channel_name)
 
-            if not keywords:
-                keywords = channel.get_keywords()
+            if not affiliate_links:
+                keywords = self.PROGRAM_KEYWORDS_MAP.get(self.program_name, [])
 
-            affiliate_links = custom_links or self.get_affiliate_links(
-                keywords=keywords
-            )
+                if not keywords:
+                    keywords = (
+                        self.pinterest_service.get_keywords()
+                        if self.IS_PIN
+                        else channel.get_keywords()
+                    )
+
+                affiliate_links = self.get_affiliate_links(keywords=keywords)
+
             unused_links = self.media_service.get_unused_affiliate_links(
-                affiliate_links
+                affiliate_links=affiliate_links, channel_name=channel_name
             )
 
             if not unused_links:
-                self.logger.info(f"No unused affiliate links for {channel_name}.")
+                self.logger.info(f"No unused affiliate links.")
                 continue
 
             for link in unused_links:
                 try:
                     title = self.get_title(link)
-                    image_urls = self.media_service.get_image_urls(
-                        query=title, limit=len(self.CHANNELS)
-                    )
-                    create_fail_exist = False
+                    image_urls = link_images_map.get(link.url, [])
+
+                    if not image_urls:
+                        image_urls = self.media_service.get_image_urls(
+                            query=title, limit=len(self.CHANNELS)
+                        )
+                        link_images_map[link.url] = image_urls
 
                     try:
-                        channel_name = channel.__class__.__name__
-                        content_id = channel.create(
+                        new_content = channel.create(
                             title=title,
                             image_url=image_urls[i] if image_urls else "",
                             affiliate_link=link,
                         )
 
-                        if not content_id:
-                            continue
-
-                        self.logger.info(
-                            f"[{channel_name}] content created (ID = {content_id}): {link.url}"
-                        )
+                        if new_content:
+                            created_link_urls.append(link.url)
+                            self.logger.info(
+                                f"[Content created (ID = {new_content.id}): {link.url}"
+                            )
                     except Exception as e:
-                        create_fail_exist = True
                         self.logger.error(
                             f"Error executing cron for channel {channel.__class__.__name__}: {e}"
                         )
-
-                    if not create_fail_exist:
-                        self.media_service.add_affiliate_link(link.url)
                 except Exception as e:
                     self.logger.error(f"Error executing cron for link {link.url}: {e}")
+
+            self.media_service.add_affiliate_links(
+                channel_name=channel_name, urls=created_link_urls
+            )

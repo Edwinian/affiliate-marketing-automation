@@ -4,7 +4,7 @@ import requests
 from typing import Dict, List, Any
 import os
 from dotenv import load_dotenv
-from all_types import AffiliateLink
+from all_types import CreateChannelResponse
 from channel import Channel
 from enums import PinterestTrendType
 
@@ -230,38 +230,40 @@ class PinterestService(Channel):
             self.logger.error(f"Error creating board section: {e}")
             return ""
 
-    def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
+    def create(
+        self,
+        title: str,
+        image_url: str,
+        category: str,
+        link: str,
+    ) -> CreateChannelResponse:
         """
         Creates a pin on the specified board with the given image URL, and optional affiliate link.
         Returns the pin ID.
         """
         try:
-            board_id = self._get_board_id(affiliate_link.categories[0])
+            board_id = self._get_board_id(category)
 
             if not board_id:
                 self.logger.info("No valid board ID found.")
                 return ""
 
-            # Include affiliate link in description if provided
             description = self.get_pin_description(title)
-
-            if affiliate_link:
-                description += f"\n<small>{self.DISCLOSURE}</small>"
-
             url = f"{self.base_url}/pins"
             payload = {
                 "board_id": board_id,
                 "title": title,
                 "description": description,
                 "media_source": {"source_type": "image_url", "url": image_url},
-                "link": affiliate_link.url if affiliate_link else "",
+                "link": link,
             }
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             data = response.json()
-            pin_id = data.get("id")
-            self.logger.info(f"Created pin {pin_id}")
-            return pin_id
+            id = data.get("id")
+            self.logger.info(f"Created pin {id}")
+
+            return CreateChannelResponse(id=id)
         except requests.RequestException as e:
             self.logger.error(
                 f"Error creating pin: {e.response.status_code if e.response else 'No response'} - {e.response.json() if e.response else str(e)}"
@@ -274,8 +276,9 @@ class PinterestService(Channel):
         """
         prompt = f"Create a Pinterest description for this title that is SEO friendly, time-agnostic, and suitable for affiliate marketing, respond the description only: '{title}'"
         try:
-            response = self.llm_service.generate_text(prompt)
-            return response
+            description = self.llm_service.generate_text(prompt)
+            description += f"\n<small>{self.DISCLOSURE}</small>"
+            return description
         except Exception as e:
             self.logger.error(f"Error generating description: {e}")
             return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!"

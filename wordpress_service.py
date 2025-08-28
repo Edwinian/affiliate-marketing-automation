@@ -4,7 +4,13 @@ from dotenv import load_dotenv
 import requests
 from typing import List
 
-from all_types import AffiliateLink, WordpressPost, WordpressCategory, WordpressTag
+from all_types import (
+    AffiliateLink,
+    CreateChannelResponse,
+    WordpressPost,
+    WordpressCategory,
+    WordpressTag,
+)
 from channel import Channel
 from enums import LlmErrorPrompt
 
@@ -523,7 +529,9 @@ class WordpressService(Channel):
             self.logger.error(f"Error creating navbar: {e}")
             return '<nav class="dynamic-nav"><ul><li>Error generating navbar</li></ul></nav>'
 
-    def create(self, title: str, image_url: str, affiliate_link: AffiliateLink) -> str:
+    def create(
+        self, title: str, image_url: str, affiliate_link: AffiliateLink
+    ) -> CreateChannelResponse:
         try:
             content = self.get_post_content(title, affiliate_link)
             featured_media_id = self.upload_feature_image(image_url) if image_url else 0
@@ -545,7 +553,9 @@ class WordpressService(Channel):
             response.raise_for_status()
             post_data = response.json()
             id = post_data.get("id", "")
-            return id
+            link = post_data.get("link", "")
+
+            return CreateChannelResponse(id=id, url=link)
         except (requests.RequestException, ValueError) as e:
             self.logger.error(
                 f"Error creating post: {e}, Response: {e.response.text if e.response else 'No response'}"
