@@ -46,26 +46,26 @@ if __name__ == "__main__":
                 product_title="Kasa Smart Plug HS103P4, Smart Home Wi-Fi Outlet Works with Alexa, Echo, Google Home & IFTTT, No Hub Required, Remote Control, 15 Amp, UL Certified, 4-Pack, White",
                 categories=["Outlet Switches"],
             ),
-            AffiliateLink(
-                url="https://amzn.to/3JQsU56",
-                product_title="Crest 3D Whitestrips Professional Effects – Teeth Whitening Kit, 22 Treatments (20 + 2 Bonus), Each with 1 Upper/1Lower, 44 Strips – Crest 3DWhite Teeth Whitening Strips",
-                categories=["Strips"],
-            ),
-            AffiliateLink(
-                url="https://amzn.to/4oSGC7O",
-                product_title="Physician's Choice Probiotics 60 Billion CFU - 10 Strains + Organic Prebiotics - Immune, Digestive & Gut Health - Supports Occasional Constipation, Diarrhea, Gas & Bloating - for Women & Men - 30ct",
-                categories=["Acidophilus"],
-            ),
-            AffiliateLink(
-                url="https://amzn.to/45R2Tu7",
-                product_title="Home-it Mop and Broom Holder Wall Mount Garden Tool Storage Tool Rack Storage & Organization for the Home Plastic Hanger for Closet Garage Organizer (5-position)",
-                categories=["Storage Racks"],
-            ),
-            AffiliateLink(
-                url="https://amzn.to/4lKnRAy",
-                product_title="Amazon Basics Dog and Puppy Pee Pads, 5-Layer Leak-Proof Super Absorbent, Quick-Dry Surface, Potty Training, Regular (22x22), 100 Count, Blue & White",
-                categories=["Disposable Training Pads"],
-            ),
+            # AffiliateLink(
+            #     url="https://amzn.to/3JQsU56",
+            #     product_title="Crest 3D Whitestrips Professional Effects – Teeth Whitening Kit, 22 Treatments (20 + 2 Bonus), Each with 1 Upper/1Lower, 44 Strips – Crest 3DWhite Teeth Whitening Strips",
+            #     categories=["Strips"],
+            # ),
+            # AffiliateLink(
+            #     url="https://amzn.to/4oSGC7O",
+            #     product_title="Physician's Choice Probiotics 60 Billion CFU - 10 Strains + Organic Prebiotics - Immune, Digestive & Gut Health - Supports Occasional Constipation, Diarrhea, Gas & Bloating - for Women & Men - 30ct",
+            #     categories=["Acidophilus"],
+            # ),
+            # AffiliateLink(
+            #     url="https://amzn.to/45R2Tu7",
+            #     product_title="Home-it Mop and Broom Holder Wall Mount Garden Tool Storage Tool Rack Storage & Organization for the Home Plastic Hanger for Closet Garage Organizer (5-position)",
+            #     categories=["Storage Racks"],
+            # ),
+            # AffiliateLink(
+            #     url="https://amzn.to/4lKnRAy",
+            #     product_title="Amazon Basics Dog and Puppy Pee Pads, 5-Layer Leak-Proof Super Absorbent, Quick-Dry Surface, Potty Training, Regular (22x22), 100 Count, Blue & White",
+            #     categories=["Disposable Training Pads"],
+            # ),
         ]
     }
     execute_crons(custom_links_map=custom_links_map)

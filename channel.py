@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from ast import List
 from typing import Optional
 
 from all_types import AffiliateLink
@@ -15,19 +14,12 @@ class Channel(ABC):
         self.logger = LoggerService(name=self.__class__.__name__)
         self.llm_service = LlmService()
 
-    def get_keywords_from_model(self) -> list[str]:
+    def get_keywords(self) -> list[str]:
         keywords = self.llm_service.generate_text(
             f"what are the best affiliate products to promote nowadays? Give me {self.KEYWORD_LIMIT} keywords to search for, separated by comma to be split into list of string in python, return keywords only"
         )
         keywords = keywords.split(",")
         return keywords
-
-    @abstractmethod
-    def get_keywords() -> List[str]:
-        """
-        Abstract method to be implemented by subclasses for getting keywords.
-        """
-        pass
 
     @abstractmethod
     def create(

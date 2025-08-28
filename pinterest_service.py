@@ -25,7 +25,7 @@ class PinterestService(Channel):
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
 
-    def get_keywords(self) -> List[str]:
+    def get_keywords(self) -> list[str]:
         """
         Retrieves the top trends from Pinterest by each trend type.
         Counts occurrences of each trend type and returns the top 'limit' trend names by count.

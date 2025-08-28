@@ -1,4 +1,3 @@
-from ast import List
 from dotenv import load_dotenv
 from amazon_paapi import models, AmazonApi
 
@@ -14,9 +13,9 @@ class AmazonService(AffiliateProgram):
 
     def __init__(self):
         super().__init__()
-        self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
+        # self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
-    def get_affiliate_links(self, keywords: List[str]) -> list[AffiliateLink]:
+    def get_affiliate_links(self, keywords: list[str]) -> list[AffiliateLink]:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews for each keyword.
         Returns an AffiliateLink dataclass with the URL, review count, and product category.
