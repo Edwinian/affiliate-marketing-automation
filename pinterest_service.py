@@ -1,29 +1,157 @@
+import csv
+from datetime import datetime
 from urllib.parse import urlencode
 import uuid
 import requests
 from typing import Dict, List, Any
 import os
 from dotenv import load_dotenv
-from all_types import CreateChannelResponse
+from all_types import AffiliateLink, CreateChannelResponse, Pin
 from channel import Channel
 from enums import PinterestTrendType
+from wordpress_service import WordpressService
 
 load_dotenv()  # Loads the .env file
 
 
 class PinterestService(Channel):
-    def __init__(self):
+    def __init__(self, bulk_create_limit: int = 30):
         super().__init__()
+        self.wordpress_service = WordpressService()
         self.base_url = "https://api.pinterest.com/v5"
         self.headers = {
             "Authorization": f"Bearer {os.getenv('PINTEREST_ACCESS_TOKEN')}",
             "Content-Type": "application/json",
         }
+        self.BULK_CREATE_LIMIT = bulk_create_limit
         # Check token validity and refresh if necessary
         if not self.is_token_valid():
             self.logger.warning("Access token is invalid, attempting to refresh.")
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
+
+    def get_bulk_create_from_affiliate_links_csv(
+        self, affiliate_links: List[AffiliateLink]
+    ):
+        channel_name = self.__class__.__name__
+        unused_links = self.media_service.get_unused_affiliate_links(
+            affiliate_links=affiliate_links, channel_name=channel_name
+        )
+
+        if not unused_links:
+            return self.logger.info(f"No unused affiliate links.")
+
+        csv_data = []
+
+        for affiliate_link in unused_links[: self.BULK_CREATE_LIMIT]:
+            try:
+                title = self.get_title(affiliate_link)
+                image_urls = self.media_service.get_image_urls(query=title, limit=1)
+                image_url = image_urls[0] if image_urls else ""
+
+                if not image_url:
+                    self.logger.warning(f"No image found for post '{title}'")
+                    continue
+
+                link = affiliate_link.url
+                category = (
+                    affiliate_link.categories[0]
+                    if affiliate_link.categories
+                    else "Others"
+                )
+                board_id = self._get_board_id(category)
+                description = self.get_pin_description(title)
+
+                csv_data.append(
+                    {
+                        "board_id": board_id,
+                        "title": title,
+                        "description": description,
+                        "link": link,
+                        "image_url": image_url,
+                    }
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"Error executing cron for link {affiliate_link.url}: {e}"
+                )
+                continue
+
+        success = self.generate_csv(csv_data)
+
+        if success:
+            self.media_service.add_used_affiliate_links(
+                channel_name=channel_name, used_links=affiliate_links
+            )
+
+        return f"CSV generation {'succeeded' if success else 'failed'} for affiliate links."
+
+    def generate_csv(self, csv_data: list[Dict[str, Any]]) -> bool:
+        if not csv_data:
+            self.logger.info("No valid pin data to write to CSV.")
+            return False
+
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_file_path = f"bulk_pins_{timestamp}.csv"
+            with open(
+                csv_file_path, mode="w", newline="", encoding="utf-8"
+            ) as csv_file:
+                fieldnames = ["board_id", "title", "description", "link", "image_url"]
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                writer.writeheader()
+                for row in csv_data:
+                    writer.writerow(row)
+
+            self.logger.info(f"CSV file created successfully: {csv_file_path}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error writing CSV file: {e}")
+            return False
+
+    def get_bulk_create_from_posts_csv(self):
+        all_posts = self.wordpress_service.get_posts()
+        all_pins = self.get_pins()
+        pin_links = [pin.link for pin in all_pins]
+        posts_with_no_pins = [post for post in all_posts if post.link not in pin_links]
+
+        if not posts_with_no_pins:
+            return self.logger.info("All posts already have corresponding pins.")
+
+        csv_data = []
+
+        for post in posts_with_no_pins[: self.BULK_CREATE_LIMIT]:
+            try:
+                title = post.title
+                image_urls = self.media_service.get_image_urls(query=title, limit=1)
+                image_url = image_urls[0] if image_urls else ""
+
+                if not image_url:
+                    self.logger.warning(f"No image found for post '{title}'")
+                    continue
+
+                link = post.link
+                category = post.categories[0].name if post.categories else "Others"
+                board_id = self._get_board_id(category)
+                description = self.get_pin_description(title)
+
+                csv_data.append(
+                    {
+                        "board_id": board_id,
+                        "title": title,
+                        "description": description,
+                        "link": link,
+                        "image_url": image_url,
+                    }
+                )
+
+            except Exception as e:
+                self.logger.error(f"Error processing post '{post.title}': {e}")
+                continue
+
+        success = self.generate_csv(csv_data)
+        return f"CSV generation {'succeeded' if success else 'failed'} for posts without pins."
 
     def get_keywords(self) -> list[str]:
         """
@@ -175,7 +303,7 @@ class PinterestService(Channel):
             self.logger.error(f"Error fetching boards: {e}")
             return ""
 
-    def get_pins(self) -> List[Dict[str, Any]]:
+    def get_pins(self) -> list[Pin]:
         """
         Calls Pinterest API and returns a list of the top 3 latest pins.
         """
@@ -185,7 +313,16 @@ class PinterestService(Channel):
             response.raise_for_status()
             data = response.json()
             pins = data.get("items", [])
-            return pins
+            return [
+                Pin(
+                    id=pin.get("id", ""),
+                    board_id=pin.get("board_id", ""),
+                    title=pin.get("title", ""),
+                    link=pin.get("link", ""),
+                    description=pin.get("description", ""),
+                )
+                for pin in pins
+            ]
         except requests.RequestException as e:
             self.logger.error(f"Error fetching pins: {e}")
             return []
@@ -286,5 +423,5 @@ class PinterestService(Channel):
 
 if __name__ == "__main__":
     service = PinterestService()
-    result = service.get_keywords()
+    result = service.get_pins()
     print(result)

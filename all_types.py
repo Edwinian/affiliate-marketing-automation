@@ -43,3 +43,12 @@ class CreateChannelResponse:
 class UsedLink:
     url: str
     post_id: Optional[str] = None
+
+
+@dataclass
+class Pin:
+    id: str
+    board_id: str
+    title: str
+    link: str
+    description: str

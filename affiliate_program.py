@@ -46,20 +46,12 @@ class AffiliateProgram(ABC):
         keywords = keywords.split(",")
         return keywords
 
-    def get_title(self, affiliate_link: AffiliateLink) -> str:
-        try:
-            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
-            return self.llm_service.generate_text(prompt)
-        except Exception as e:
-            self.logger.info(f"Error generating title: {e}")
-            return f"{affiliate_link.categories[0]}"
-
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
         affiliate_links = custom_links
         link_images_map: dict[str, list[str]] = {}
 
         for i, channel in enumerate(self.CHANNELS):
-            used_links: list[UsedLink] = []
+            create_links: list[UsedLink] = []
             channel_name = channel.__class__.__name__
             self.logger.set_prefix(channel_name)
 
@@ -85,7 +77,7 @@ class AffiliateProgram(ABC):
 
             for link in unused_links:
                 try:
-                    title = self.get_title(link)
+                    title = channel.get_title(link)
                     image_urls = link_images_map.get(link.url, [])
 
                     if not image_urls:
@@ -102,7 +94,7 @@ class AffiliateProgram(ABC):
                         )
 
                         if new_content:
-                            used_links.append(
+                            create_links.append(
                                 UsedLink(url=link.url, post_id=new_content.id)
                             )
                             self.logger.info(
@@ -116,5 +108,5 @@ class AffiliateProgram(ABC):
                     self.logger.error(f"Error executing cron for link {link.url}: {e}")
 
             self.media_service.add_used_affiliate_links(
-                channel_name=channel_name, used_links=used_links
+                channel_name=channel_name, used_links=create_links
             )

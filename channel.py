@@ -4,6 +4,7 @@ from typing import Optional
 from all_types import AffiliateLink, CreateChannelResponse
 from llm_service import LlmService
 from logger_service import LoggerService
+from media_service import MediaService
 
 
 class Channel(ABC):
@@ -13,6 +14,15 @@ class Channel(ABC):
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
         self.llm_service = LlmService()
+        self.media_service = MediaService()
+
+    def get_title(self, affiliate_link: AffiliateLink) -> str:
+        try:
+            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
+            return self.llm_service.generate_text(prompt)
+        except Exception as e:
+            self.logger.info(f"Error generating title: {e}")
+            return f"{affiliate_link.categories[0]}"
 
     def get_keywords(self) -> list[str]:
         keywords = self.llm_service.generate_text(
