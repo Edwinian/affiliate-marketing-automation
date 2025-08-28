@@ -192,6 +192,33 @@ class AWSService:
             self.logger_service.error(f"Error writing affiliate link to S3: {str(e)}")
             return False
 
+    def clear_used_affiliate_links(self) -> bool:
+        """
+        Clear all used affiliate links by deleting the S3 object.
+        """
+        return self.delete_s3_object(key=self.USED_LINK_KEY)
+
+    def delete_s3_object(self, key: str) -> bool:
+        """
+        Delete a specific object from an S3 bucket by its key.
+        """
+        try:
+            self.s3_client.delete_object(Bucket=self.bucket_name, Key=key)
+            self.logger_service.info(f"Deleted object {key}")
+            return True
+
+        except ClientError as e:
+            self.logger_service.error(
+                f"Failed to delete object {key} from bucket {self.bucket_name}: {str(e)}"
+            )
+            return False
+        except Exception as e:
+            self.logger_service.error(
+                f"Unexpected error during object deletion: {str(e)}"
+            )
+            return False
+
 
 if __name__ == "__main__":
     service = AWSService()
+    service.clear_used_affiliate_links()

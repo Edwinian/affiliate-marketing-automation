@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from all_types import AffiliateLink
+from all_types import AffiliateLink, UsedLink
 from channel import Channel
 from enums import CustomLinksKey
 from llm_service import LlmService
@@ -59,7 +59,7 @@ class AffiliateProgram(ABC):
         link_images_map: dict[str, list[str]] = {}
 
         for i, channel in enumerate(self.CHANNELS):
-            created_link_urls: list[str] = []
+            used_links: list[UsedLink] = []
             channel_name = channel.__class__.__name__
             self.logger.set_prefix(channel_name)
 
@@ -102,7 +102,9 @@ class AffiliateProgram(ABC):
                         )
 
                         if new_content:
-                            created_link_urls.append(link.url)
+                            used_links.append(
+                                UsedLink(url=link.url, post_id=new_content.id)
+                            )
                             self.logger.info(
                                 f"[Content created (ID = {new_content.id}): {link.url}"
                             )
@@ -113,6 +115,6 @@ class AffiliateProgram(ABC):
                 except Exception as e:
                     self.logger.error(f"Error executing cron for link {link.url}: {e}")
 
-            self.media_service.add_affiliate_links(
-                channel_name=channel_name, urls=created_link_urls
+            self.media_service.add_used_affiliate_links(
+                channel_name=channel_name, used_links=used_links
             )

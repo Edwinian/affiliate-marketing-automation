@@ -37,3 +37,9 @@ class WordpressTag:
 class CreateChannelResponse:
     id: str
     url: Optional[str] = None
+
+
+@dataclass
+class UsedLink:
+    url: str
+    post_id: Optional[str] = None

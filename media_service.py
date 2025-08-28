@@ -3,7 +3,7 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
-from all_types import AffiliateLink
+from all_types import AffiliateLink, UsedLink
 from aws_service import AWSService
 from logger_service import LoggerService
 
@@ -78,24 +78,39 @@ class MediaService:
         self.fetched_image_urls = self.fetched_image_urls[used_count:]
         return image_urls
 
-    def add_affiliate_links(self, channel_name: str, urls: list[str] = []) -> None:
+    def add_used_affiliate_links(
+        self, channel_name: str, used_links: list[UsedLink] = []
+    ) -> None:
         """
         Write an affiliate link to AWS S3
         """
-        if not urls:
+        if not used_links:
             return
 
         try:
             formatted_links = [
-                self.get_formatted_link(url, channel_name) for url in urls
+                self.get_formatted_link(
+                    url=link.url, channel_name=channel_name, post_id=link.post_id
+                )
+                for link in used_links
             ]
             success = self.aws_service.add_used_affiliate_links(links=formatted_links)
-            self.logger.info(f"Affiliate links recorded {success}: {urls}")
+            self.logger.info(f"Affiliate links recorded {success}: {formatted_links}")
         except Exception as e:
             self.logger.error(f"Error writing affiliate link to file: {str(e)}")
 
-    def get_formatted_link(self, url: str, channel_name: str) -> str:
-        return f"{url} - {channel_name}"
+    def get_formatted_link(
+        self, url: str, channel_name: str, post_id: Optional[str] = None
+    ) -> str:
+        """
+        {url} - {channel_name} or {url} - {channel_name} - {post_id}
+        """
+        formatted_link = f"{url} - {channel_name}"
+
+        if post_id:
+            formatted_link += f" - {post_id}"
+
+        return formatted_link
 
     def get_unused_affiliate_links(
         self, affiliate_links: list[AffiliateLink] = [], channel_name: str = ""
@@ -126,7 +141,7 @@ class MediaService:
                     url=link.url, channel_name=channel_name
                 )
 
-                if formatted_link not in used_links:
+                if not any(formatted_link in used_link for used_link in used_links):
                     unused_links.append(link)
         except Exception as e:
             self.logger.error(f"Error reading affiliate links file: {str(e)}")
