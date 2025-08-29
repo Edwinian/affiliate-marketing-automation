@@ -23,13 +23,6 @@ class Channel(ABC):
             self.logger.info(f"Error generating title: {e}")
             return f"{affiliate_link.categories[0]}"
 
-    def get_keywords(self, limit: int = 2) -> list[str]:
-        keywords = self.llm_service.generate_text(
-            f"what are the best affiliate products to promote nowadays? Give me {limit} keywords to search for, separated by comma to be split into list of string in python, return keywords only"
-        )
-        keywords = keywords.split(",")
-        return keywords
-
     @abstractmethod
     def create(
         self, title: str, affiliate_link: AffiliateLink, image_url: Optional[str] = None

@@ -11,16 +11,16 @@ class AmazonService(AffiliateProgram):
     CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
     IS_PIN = True
     WORDPRESS_CREDENTIALS = {
-        "API_URL": os.getenv("WORDPRESS_API_URL"),
-        "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL"),
-        "ACCESS_TOKEN": os.getenv("WORDPRESS_ACCESS_TOKEN"),
+        "API_URL": os.getenv("WORDPRESS_API_URL_AMAZON"),
+        "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL_AMAZON"),
+        "ACCESS_TOKEN": os.getenv("WORDPRESS_ACCESS_TOKEN_AMAZON"),
     }
 
     def __init__(self):
         super().__init__()
         # self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
 
-    def get_affiliate_links(self, keywords: list[str]) -> list[AffiliateLink]:
+    def get_program_links(self, keywords: list[str]) -> list[AffiliateLink]:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews for each keyword.
         Returns an AffiliateLink dataclass with the URL, review count, and product category.

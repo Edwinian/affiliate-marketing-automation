@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 from urllib.parse import urlencode
 import uuid
 import requests
-from typing import Dict, List, Any
-from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink
+from typing import Dict, List, Any, Optional
+from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink, WordpressPost
 from channel import Channel
 from enums import PinterestTrendType
 from wordpress_service import WordpressService
@@ -20,7 +20,6 @@ class PinterestService(Channel):
         publish_increment_min: int = 15,
     ):
         super().__init__()
-        self.wordpress_service = WordpressService()
         self.base_url = "https://api.pinterest.com/v5"
         self.headers = {
             "Authorization": f"Bearer {os.getenv('PINTEREST_ACCESS_TOKEN')}",
@@ -40,23 +39,11 @@ class PinterestService(Channel):
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
 
-    def get_bulk_create_csv(self, affiliate_links: List[AffiliateLink] = []) -> str:
-        """
-        Generates a CSV for bulk creating pins from affiliate links or blog posts.
-        Returns the CSV file path on success.
-        """
-        return (
-            self.get_bulk_create_from_affiliate_links_csv(affiliate_links)
-            if affiliate_links
-            else self.get_bulk_create_from_posts_csv()
-        )
-
     def get_bulk_create_from_affiliate_links_csv(
         self, affiliate_links: List[AffiliateLink]
     ):
-        channel_name = self.__class__.__name__
         unused_links = self.media_service.get_unused_affiliate_links(
-            affiliate_links=affiliate_links, channel_name=channel_name
+            affiliate_links=affiliate_links
         )
 
         if not unused_links:
@@ -122,9 +109,7 @@ class PinterestService(Channel):
 
         if success:
             used_links = [UsedLink(url=link.url) for link in affiliate_links]
-            self.media_service.add_used_affiliate_links(
-                channel_name=channel_name, used_links=used_links
-            )
+            self.media_service.add_used_affiliate_links(used_links=used_links)
 
         return f"CSV generation {'succeeded' if success else 'failed'} for affiliate links."
 
@@ -199,7 +184,7 @@ class PinterestService(Channel):
         keywords = self.get_keywords(
             limit=5, include_keywords=[category]
         )  # Use top 5 keywords for SEO
-        description = self.get_pin_description(title=title, link=link)
+        description = self.get_pin_description(title=title)
 
         return {
             "Title": self.get_pin_title(title),
@@ -211,18 +196,19 @@ class PinterestService(Channel):
             "Keywords": ",".join(keywords),
         }
 
-    def get_bulk_create_from_posts_csv(self) -> str:
+    def get_bulk_create_from_posts_csv(
+        self, posts: List[WordpressPost], limit: Optional[int] = None
+    ) -> str:
         """
         Generates a CSV for bulk creating pins from WordPress posts without pins.
         Returns the CSV file path or empty string if no pins are needed or an error occurs.
         """
-        all_posts = self.wordpress_service.get_posts()
         all_pins = self.get_pins()
         pin_titles = [pin.title for pin in all_pins]
         pin_links = [pin.link for pin in all_pins]
         posts_with_no_pins = [
             post
-            for post in all_posts
+            for post in posts
             if post.link not in pin_links and post.title not in pin_titles
         ]
 
@@ -233,7 +219,7 @@ class PinterestService(Channel):
         csv_data = []
 
         for i, post in enumerate(posts_with_no_pins):
-            if len(csv_data) >= self.BULK_CREATE_LIMIT:
+            if len(csv_data) >= limit or self.BULK_CREATE_LIMIT:
                 break
 
             try:
@@ -513,7 +499,7 @@ class PinterestService(Channel):
                 self.logger.info("No valid board ID found.")
                 return ""
 
-            description = self.get_pin_description(title=title, link=link)
+            description = self.get_pin_description(title=title)
             url = f"{self.base_url}/pins"
             payload = {
                 "board_id": board_id,
@@ -535,25 +521,19 @@ class PinterestService(Channel):
             )
             return ""
 
-    def get_pin_description(self, title: str, link: str = "") -> str:
+    def get_pin_description(self, title: str) -> str:
         """
         Generates an SEO-friendly pin description using LlmService.
         """
-        limit = 750  # Pinterest allows up to 800 characters, but using 750 to be safe
         disclosure = f"\n<small>{self.DISCLOSURE}</small>"
-        is_affiliate_link = self.wordpress_service.frontend_url not in link
-
-        if is_affiliate_link:
-            limit -= len(disclosure)
-
+        limit = 750 - len(
+            disclosure
+        )  # Pinterest allows up to 800 characters, but set 750 as limit to be safe
         prompt = f"Create a Pinterest description in no more than {limit} characters (including spaces) for this title that is SEO friendly, time-agnostic, and suitable for affiliate marketing, respond the description only: '{title}'"
 
         try:
             description = self.llm_service.generate_text(prompt)
-
-            if is_affiliate_link:
-                description += disclosure
-
+            description += disclosure
             return description[:limit]
         except Exception as e:
             self.logger.error(f"Error generating description: {e}")
@@ -590,5 +570,5 @@ if __name__ == "__main__":
             categories=["Disposable Training Pads"],
         ),
     ]
-    result = service.get_bulk_create_csv()
+    result = service.get_bulk_create_from_affiliate_links_csv(affiliate_links=links)
     print(result)

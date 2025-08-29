@@ -16,28 +16,25 @@ class MediaService:
     def fetch_image_urls(
         self,
         limit: int,
+        size: str,
         query: Optional[str] = None,
-        size="original",
         next_page: Optional[str] = None,
     ) -> Optional[list[str]]:
         """
         Fetch image URLs from Pexels API with pagination.
         """
-        per_page_limit = 80
-        limit = limit or per_page_limit
-        url = "https://api.pexels.com/v1/search"
-        params = {"query": query, "per_page": per_page_limit}
-
         try:
-            response = (
-                requests.get(url=next_page)
-                if next_page
-                else requests.get(
+            if next_page:
+                response = requests.get(url=next_page)
+            else:
+                url = "https://api.pexels.com/v1/search"
+                params = {"query": query, "per_page": 80}
+                response = requests.get(
                     url,
                     headers={"Authorization": os.getenv("PEXELS_API_KEY")},
                     params=params,
                 )
-            )
+
             response.raise_for_status()
             data = response.json()
 
@@ -56,27 +53,24 @@ class MediaService:
             next_page = data.get("next_page")
 
             if next_page and len(self.fetched_image_urls) < limit:
-                return self.fetch_image_urls(next_page=next_page)
+                return self.fetch_image_urls(
+                    next_page=next_page, limit=limit, size=size
+                )
         except requests.RequestException as e:
             self.logger.error(f"Pexels API error for query '{query}': {str(e)}")
 
     def get_image_urls(
         self,
-        limit: int,
-        query: Optional[str] = None,
-        size="original",
+        query: str,
+        limit: int = 1,
+        size: str = "original",
     ) -> Optional[list[str]]:
         if len(self.fetched_image_urls) < limit:
             self.fetch_image_urls(query=query, size=size, limit=limit)
 
-        used_count = min(limit, len(self.fetched_image_urls))
-        image_urls = self.fetched_image_urls[:used_count]
-        self.fetched_image_urls = self.fetched_image_urls[used_count:]
-        return image_urls
+        return self.fetched_image_urls
 
-    def add_used_affiliate_links(
-        self, channel_name: str, used_links: list[UsedLink] = []
-    ) -> None:
+    def add_used_affiliate_links(self, used_links: list[UsedLink] = []) -> None:
         """
         Write an affiliate link to AWS S3
         """
@@ -85,23 +79,21 @@ class MediaService:
 
         try:
             formatted_links = [
-                self.get_formatted_link(
-                    url=link.url, channel_name=channel_name, post_id=link.post_id
-                )
+                self.get_formatted_link(url=link.url, post_id=link.post_id)
                 for link in used_links
             ]
             success = self.aws_service.add_used_affiliate_links(links=formatted_links)
-            self.logger.info(f"Affiliate links recorded {success}: {formatted_links}")
+            self.logger.info(
+                f"Affiliate links {'recorded' if success else 'not recorded'}: {formatted_links}"
+            )
         except Exception as e:
             self.logger.error(f"Error writing affiliate link to file: {str(e)}")
 
-    def get_formatted_link(
-        self, url: str, channel_name: str, post_id: Optional[str] = None
-    ) -> str:
+    def get_formatted_link(self, url: str, post_id: Optional[str] = None) -> str:
         """
-        {url} - {channel_name} or {url} - {channel_name} - {post_id}
+        {url} - {post_id}
         """
-        formatted_link = f"{url} - {channel_name}"
+        formatted_link = f"{url}"
 
         if post_id:
             formatted_link += f" - {post_id}"
@@ -109,7 +101,7 @@ class MediaService:
         return formatted_link
 
     def get_unused_affiliate_links(
-        self, affiliate_links: list[AffiliateLink] = [], channel_name: str = ""
+        self, affiliate_links: list[AffiliateLink] = []
     ) -> list[AffiliateLink]:
         """
         Check if an affiliate link already exists in AWS S3
@@ -133,9 +125,7 @@ class MediaService:
                 return affiliate_links
 
             for link in affiliate_links:
-                formatted_link = self.get_formatted_link(
-                    url=link.url, channel_name=channel_name
-                )
+                formatted_link = self.get_formatted_link(url=link.url)
 
                 if not any(formatted_link in used_link for used_link in used_links):
                     unused_links.append(link)

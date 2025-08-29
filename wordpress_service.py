@@ -20,13 +20,13 @@ class WordpressService(Channel):
     POSTS: List[WordpressPost] = []
     TAGS: List[WordpressTag] = []
 
-    def __init__(self):
+    def __init__(self, credentials: dict[str, str]):
         super().__init__()
-        self.api_url = os.getenv("WORDPRESS_API_URL")
-        self.frontend_url = os.getenv("WORDPRESS_FRONTEND_URL")
+        self.api_url = credentials["API_URL"]
+        self.frontend_url = credentials["FRONTEND_URL"]
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.getenv('WORDPRESS_ACCESS_TOKEN')}",
+            "Authorization": f"Bearer {credentials['ACCESS_TOKEN']}",
         }
 
     def sanitize(self, title: str) -> str:
