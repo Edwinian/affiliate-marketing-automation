@@ -15,7 +15,12 @@ load_dotenv()  # Loads the .env file
 
 
 class PinterestService(Channel):
-    def __init__(self, bulk_create_limit: int = 30):
+    def __init__(
+        self,
+        bulk_create_limit: int = 30,
+        all_publish_delay_min: int = 0,
+        publish_increment_min: int = 15,
+    ):
         super().__init__()
         self.wordpress_service = WordpressService()
         self.base_url = "https://api.pinterest.com/v5"
@@ -23,7 +28,14 @@ class PinterestService(Channel):
             "Authorization": f"Bearer {os.getenv('PINTEREST_ACCESS_TOKEN')}",
             "Content-Type": "application/json",
         }
+
+        # Bulk create config
         self.BULK_CREATE_LIMIT = bulk_create_limit
+        self.ALL_PUBLISH_DELAY_MIN = (
+            all_publish_delay_min  # Publish all pins after X min
+        )
+        self.PUBLISH_INCREMENT_MIN = publish_increment_min  # Publish pin with X min apart to avoid potential spam flag from Pinterest
+
         # Check token validity and refresh if necessary
         if not self.is_token_valid():
             self.logger.warning("Access token is invalid, attempting to refresh.")
@@ -31,7 +43,7 @@ class PinterestService(Channel):
                 self.logger.error("Failed to refresh access token.")
 
     def get_bulk_create_from_affiliate_links_csv(
-        self, affiliate_links: List[AffiliateLink], all_publish_delay_min: int = 0
+        self, affiliate_links: List[AffiliateLink]
     ):
         channel_name = self.__class__.__name__
         unused_links = self.media_service.get_unused_affiliate_links(
@@ -46,7 +58,10 @@ class PinterestService(Channel):
         pin_titles = [pin.title for pin in all_pins]
         pin_links = [pin.link for pin in all_pins]
 
-        for i, affiliate_link in enumerate(unused_links[: self.BULK_CREATE_LIMIT]):
+        for i, affiliate_link in enumerate(unused_links):
+            if len(csv_data) >= self.BULK_CREATE_LIMIT:
+                break
+
             try:
                 title = self.get_title(affiliate_link)
                 link = affiliate_link.url
@@ -73,12 +88,11 @@ class PinterestService(Channel):
                     self.logger.warning(f"No valid board for category '{category}'")
                     continue
 
-                # Publish pin with 1 min apart to avoid potential spam flag from Pinterest
                 data_row = self.get_csv_row_data(
                     title=title,
                     category=category,
                     link=link,
-                    publish_delay_min=all_publish_delay_min + i * 15,
+                    publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
                 )
 
                 if not data_row:
@@ -138,13 +152,29 @@ class PinterestService(Channel):
             self.logger.error(f"Error writing CSV file: {e}")
             return ""
 
+    def get_pin_title(self, title: str) -> str:
+        title_limit = 100  # Pinterest allows up to 100 characters
+
+        if len(title) <= title_limit:
+            return title
+
+        paraphrase_title = self.llm_service.generate_text(
+            f"Paraphrase this title to be less than {title_limit} characters (including spaces) without losing its meaning: '{title}'"
+        )
+
+        return paraphrase_title[:title_limit]
+
     def get_csv_row_data(
         self,
         title: str,
         category: str,
         link: str,
-        publish_delay_min=0,
+        publish_delay_min: int,
     ):
+        if len(link) > 2000:
+            self.logger.warning(f"Link too long (>2000 chars), skipping: {link}")
+            return
+
         image_urls = self.media_service.get_image_urls(query=title, limit=1)
 
         if not image_urls:
@@ -152,16 +182,17 @@ class PinterestService(Channel):
             return
 
         image_url = image_urls[0]
-        publish_date = (datetime.now() + timedelta(minutes=publish_delay_min)).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        publish_date = (
+            datetime.now()
+            + timedelta(minutes=self.ALL_PUBLISH_DELAY_MIN + publish_delay_min)
+        ).strftime("%Y-%m-%d %H:%M:%S")
         keywords = self.get_keywords(
-            limit=5, include_keywords=[title]
+            limit=5, include_keywords=[category]
         )  # Use top 5 keywords for SEO
-        description = self.get_pin_description(title)
+        description = self.get_pin_description(title=title, link=link)
 
         return {
-            "Title": title[:100],  # Pinterest recommends max 100 chars
+            "Title": self.get_pin_title(title),
             "Media URL": image_url,
             "Pinterest board": category,
             "Description": description,
@@ -170,7 +201,7 @@ class PinterestService(Channel):
             "Keywords": ",".join(keywords),
         }
 
-    def get_bulk_create_from_posts_csv(self, all_publish_delay_min: int = 0) -> str:
+    def get_bulk_create_from_posts_csv(self) -> str:
         """
         Generates a CSV for bulk creating pins from WordPress posts without pins.
         Returns the CSV file path or empty string if no pins are needed or an error occurs.
@@ -191,7 +222,10 @@ class PinterestService(Channel):
 
         csv_data = []
 
-        for i, post in enumerate(posts_with_no_pins[: self.BULK_CREATE_LIMIT]):
+        for i, post in enumerate(posts_with_no_pins):
+            if len(csv_data) >= self.BULK_CREATE_LIMIT:
+                break
+
             try:
                 title = post.title
                 csv_titles = [row["Title"] for row in csv_data]
@@ -208,12 +242,11 @@ class PinterestService(Channel):
                     self.logger.warning(f"No valid board for category '{category}'")
                     continue
 
-                # Publish pin with 15 min apart to avoid potential spam flag from Pinterest
                 data_row = self.get_csv_row_data(
                     title=title,
                     category=category,
                     link=link,
-                    publish_delay_min=all_publish_delay_min + i * 15,
+                    publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
                 )
 
                 if not data_row:
@@ -470,11 +503,11 @@ class PinterestService(Channel):
                 self.logger.info("No valid board ID found.")
                 return ""
 
-            description = self.get_pin_description(title)
+            description = self.get_pin_description(title=title, link=link)
             url = f"{self.base_url}/pins"
             payload = {
                 "board_id": board_id,
-                "title": title,
+                "title": self.get_pin_title(title),
                 "description": description,
                 "media_source": {"source_type": "image_url", "url": image_url},
                 "link": link,
@@ -492,21 +525,60 @@ class PinterestService(Channel):
             )
             return ""
 
-    def get_pin_description(self, title: str) -> str:
+    def get_pin_description(self, title: str, link: str = "") -> str:
         """
         Generates an SEO-friendly pin description using LlmService.
         """
-        prompt = f"Create a Pinterest description for this title that is SEO friendly, time-agnostic, and suitable for affiliate marketing, respond the description only: '{title}'"
+        limit = 750  # Pinterest allows up to 800 characters, but using 750 to be safe
+        disclosure = f"\n<small>{self.DISCLOSURE}</small>"
+        is_affiliate_link = self.wordpress_service.frontend_url not in link
+
+        if is_affiliate_link:
+            limit -= len(disclosure)
+
+        prompt = f"Create a Pinterest description in no more than {limit} characters (including spaces) for this title that is SEO friendly, time-agnostic, and suitable for affiliate marketing, respond the description only: '{title}'"
+
         try:
             description = self.llm_service.generate_text(prompt)
-            description += f"\n<small>{self.DISCLOSURE}</small>"
-            return description[:500]
+
+            if is_affiliate_link:
+                description += disclosure
+
+            return description[:limit]
         except Exception as e:
             self.logger.error(f"Error generating description: {e}")
             return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!"
 
 
 if __name__ == "__main__":
-    service = PinterestService()
-    result = service.get_bulk_create_from_posts_csv()
+    service = PinterestService(bulk_create_limit=1)
+
+    links = [
+        # AffiliateLink(
+        #     url="https://amzn.to/46d5C1d",
+        #     product_title="Kasa Smart Plug HS103P4, Smart Home Wi-Fi Outlet Works with Alexa, Echo, Google Home & IFTTT, No Hub Required, Remote Control, 15 Amp, UL Certified, 4-Pack, White",
+        #     categories=["Outlet Switches"],
+        # ),
+        # AffiliateLink(
+        #     url="https://amzn.to/3JQsU56",
+        #     product_title="Crest 3D Whitestrips Professional Effects – Teeth Whitening Kit, 22 Treatments (20 + 2 Bonus), Each with 1 Upper/1Lower, 44 Strips – Crest 3DWhite Teeth Whitening Strips",
+        #     categories=["Strips"],
+        # ),
+        # AffiliateLink(
+        #     url="https://amzn.to/4oSGC7O",
+        #     product_title="Physician's Choice Probiotics 60 Billion CFU - 10 Strains + Organic Prebiotics - Immune, Digestive & Gut Health - Supports Occasional Constipation, Diarrhea, Gas & Bloating - for Women & Men - 30ct",
+        #     categories=["Acidophilus"],
+        # ),
+        # AffiliateLink(
+        #     url="https://amzn.to/45R2Tu7",
+        #     product_title="Home-it Mop and Broom Holder Wall Mount Garden Tool Storage Tool Rack Storage & Organization for the Home Plastic Hanger for Closet Garage Organizer (5-position)",
+        #     categories=["Storage Racks"],
+        # ),
+        AffiliateLink(
+            url="https://amzn.to/4lKnRAy",
+            product_title="Amazon Basics Dog and Puppy Pee Pads, 5-Layer Leak-Proof Super Absorbent, Quick-Dry Surface, Potty Training, Regular (22x22), 100 Count, Blue & White",
+            categories=["Disposable Training Pads"],
+        ),
+    ]
+    result = service.get_bulk_create_from_affiliate_links_csv(links)
     print(result)
