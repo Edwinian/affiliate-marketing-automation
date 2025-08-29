@@ -6,7 +6,7 @@ import requests
 from typing import Dict, List, Any
 import os
 from dotenv import load_dotenv
-from all_types import AffiliateLink, CreateChannelResponse, Pin
+from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink
 from channel import Channel
 from enums import PinterestTrendType
 from wordpress_service import WordpressService
@@ -123,8 +123,9 @@ class PinterestService(Channel):
         success = self.generate_csv(csv_data)
 
         if success:
+            used_links = [UsedLink(url=link.url) for link in affiliate_links]
             self.media_service.add_used_affiliate_links(
-                channel_name=channel_name, used_links=affiliate_links
+                channel_name=channel_name, used_links=used_links
             )
 
         return f"CSV generation {'succeeded' if success else 'failed'} for affiliate links."
