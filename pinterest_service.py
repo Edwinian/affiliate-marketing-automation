@@ -42,6 +42,17 @@ class PinterestService(Channel):
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
 
+    def get_bulk_create_csv(self, affiliate_links: List[AffiliateLink] = []) -> str:
+        """
+        Generates a CSV for bulk creating pins from affiliate links or blog posts.
+        Returns the CSV file path on success.
+        """
+        return (
+            self.get_bulk_create_from_affiliate_links_csv(affiliate_links)
+            if affiliate_links
+            else self.get_bulk_create_from_posts_csv()
+        )
+
     def get_bulk_create_from_affiliate_links_csv(
         self, affiliate_links: List[AffiliateLink]
     ):
@@ -580,5 +591,5 @@ if __name__ == "__main__":
             categories=["Disposable Training Pads"],
         ),
     ]
-    result = service.get_bulk_create_from_affiliate_links_csv(links)
+    result = service.get_bulk_create_csv()
     print(result)
