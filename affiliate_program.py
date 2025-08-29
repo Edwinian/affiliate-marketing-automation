@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from all_types import AffiliateLink, UsedLink
 from enums import CustomLinksKey
@@ -17,7 +17,7 @@ class AffiliateProgram(ABC):
 
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
     IS_PIN = False
-    PROGRAM_KEYWORDS_MAP: dict[str, list[str]] = {}
+    IS_SINGLE_AFFILIATE_LINK = False
     WORDPRESS_CREDENTIALS: dict[str, str] = None
 
     def __init__(self):
@@ -34,7 +34,9 @@ class AffiliateProgram(ABC):
         self.wordpress = WordpressService(credentials=self.WORDPRESS_CREDENTIALS)
 
     @abstractmethod
-    def get_program_links(self, keywords: List[str]) -> list[AffiliateLink]:
+    def get_program_links(
+        self, keywords: Optional[List[str]] = []
+    ) -> list[AffiliateLink]:
         """
         Abstract method to be implemented by subclasses for getting affiliate links from program.
         """
@@ -49,16 +51,19 @@ class AffiliateProgram(ABC):
     def get_affiliate_links(
         self,
     ) -> list[AffiliateLink]:
-        affiliate_links = []
+        if self.IS_SINGLE_AFFILIATE_LINK:
+            return self.get_program_links()
 
-        keywords = self.PROGRAM_KEYWORDS_MAP.get(self.program_name, [])
+        affiliate_links = []
+        keywords = (
+            self.pinterest_service.get_keywords()
+            if self.IS_PIN
+            else self.get_keywords_from_model()
+        )
 
         if not keywords:
-            keywords = (
-                self.pinterest_service.get_keywords()
-                if self.IS_PIN
-                else self.get_keywords_from_model()
-            )
+            self.logger.info("No keywords found.")
+            return affiliate_links
 
         affiliate_links = self.get_program_links(keywords=keywords)
         affiliate_links = self.media_service.get_unused_affiliate_links(
