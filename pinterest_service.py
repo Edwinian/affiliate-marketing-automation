@@ -4,14 +4,12 @@ from urllib.parse import urlencode
 import uuid
 import requests
 from typing import Dict, List, Any
-import os
-from dotenv import load_dotenv
 from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink
 from channel import Channel
 from enums import PinterestTrendType
 from wordpress_service import WordpressService
 
-load_dotenv()  # Loads the .env file
+from common import os, load_dotenv, requests
 
 
 class PinterestService(Channel):

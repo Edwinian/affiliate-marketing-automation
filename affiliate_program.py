@@ -19,10 +19,10 @@ class AffiliateProgram(ABC):
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
     CHANNELS: list[Channel] = [
         WordpressService(),
-        # PinterestService(), # Creating max 30 pins per week only, so cron job is not needed
     ]
     PROGRAM_KEYWORDS_MAP: dict[str, list[str]] = {}
     IS_PIN = False
+    WORDPRESS_CREDENTIALS = {}
 
     def __init__(self):
         self.program_name = self.__class__.__name__

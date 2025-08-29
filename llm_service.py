@@ -1,12 +1,9 @@
-import os
 from xai_sdk import Client
 from xai_sdk.chat import user
-from dotenv import load_dotenv
-
 from enums import LlmErrorPrompt
 from logger_service import LoggerService
 
-load_dotenv()  # Loads the .env file
+from common import os, load_dotenv
 
 
 class InsufficientCreditsError(Exception):

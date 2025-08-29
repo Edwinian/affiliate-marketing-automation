@@ -1,16 +1,14 @@
 from datetime import datetime
 import io
 import json
-import os
 import boto3
 from botocore.config import Config
 from typing import Optional, Tuple
 from botocore.exceptions import ClientError
-from dotenv import load_dotenv
 
 from logger_service import LoggerService
 
-load_dotenv()
+from common import os, load_dotenv
 
 
 class AWSService:

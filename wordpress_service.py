@@ -1,6 +1,4 @@
-import os
 import html
-from dotenv import load_dotenv
 import requests
 from typing import List
 
@@ -14,7 +12,7 @@ from all_types import (
 from channel import Channel
 from enums import LlmErrorPrompt
 
-load_dotenv()
+from common import os, load_dotenv, requests
 
 
 class WordpressService(Channel):

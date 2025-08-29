@@ -1,13 +1,9 @@
-import os
 from typing import Optional
-import requests
-from dotenv import load_dotenv
-
 from all_types import AffiliateLink, UsedLink
 from aws_service import AWSService
 from logger_service import LoggerService
 
-load_dotenv()
+from common import os, load_dotenv, requests
 
 
 class MediaService:

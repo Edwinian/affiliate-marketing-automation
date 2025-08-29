@@ -1,16 +1,20 @@
-from dotenv import load_dotenv
 from amazon_paapi import models, AmazonApi
 
 from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
 from enums import CustomLinksKey
 
-load_dotenv()
+from common import os, load_dotenv
 
 
 class AmazonService(AffiliateProgram):
     CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
     IS_PIN = True
+    WORDPRESS_CREDENTIALS = {
+        "API_URL": os.getenv("WORDPRESS_API_URL"),
+        "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL"),
+        "ACCESS_TOKEN": os.getenv("WORDPRESS_ACCESS_TOKEN"),
+    }
 
     def __init__(self):
         super().__init__()
