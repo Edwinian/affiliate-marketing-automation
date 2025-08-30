@@ -23,7 +23,7 @@ class LlmService:
         prompt: str,
     ) -> str:
         try:
-            prompt = f"Respond with {LlmErrorPrompt.QUOTA_EXCEEDED} if no more credit for usage. Respond with {LlmErrorPrompt.LENGTH_EXCEEDED} if prompt length is too long. {prompt}"
+            prompt = f"Respond with {LlmErrorPrompt.QUOTA_EXCEEDED} if no more credit for usage. Respond with {LlmErrorPrompt.LENGTH_EXCEEDED} if input + output length is too long. {prompt}"
             chat = self.x_client.chat.create(model=self.model_name)
             chat.append(user(prompt))
             response = chat.sample()

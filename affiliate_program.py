@@ -81,11 +81,19 @@ class AffiliateProgram(ABC):
     ) -> list[UsedLink]:
         create_links: list[UsedLink] = []
         link_images_map: dict[str, list[str]] = {}
+        all_posts = self.wordpress.get_posts()
 
         for link in affiliate_links:
             try:
-                all_posts = self.wordpress.get_posts()
-                title = self.wordpress.get_title(affiliate_link=link, posts=all_posts)
+                category_titles = [
+                    post.title
+                    for post in all_posts
+                    if post.categories
+                    and link.categories[0] in [cat.name for cat in post.categories]
+                ]
+                title = self.wordpress.get_title(
+                    affiliate_link=link, category_titles=category_titles
+                )
                 image_urls = link_images_map.get(link.url, [])
 
                 if not image_urls:
