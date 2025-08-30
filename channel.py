@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from all_types import AffiliateLink, CreateChannelResponse
+from all_types import AffiliateLink, CreateChannelResponse, WordpressPost
 from llm_service import LlmService
 from logger_service import LoggerService
 from media_service import MediaService
@@ -15,9 +15,18 @@ class Channel(ABC):
         self.llm_service = LlmService()
         self.media_service = MediaService()
 
-    def get_title(self, affiliate_link: AffiliateLink) -> str:
+    def get_title(
+        self, affiliate_link: AffiliateLink, posts: Optional[list[WordpressPost]] = []
+    ) -> str:
         try:
-            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
+            category_titles = [
+                post.title
+                for post in posts
+                if post.categories
+                and affiliate_link.categories[0]
+                in [cat.name for cat in post.categories]
+            ]
+            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product{f" and conflicting with existing titles: {category_titles}" if category_titles else ""}, return the title only without quotes."
             return self.llm_service.generate_text(prompt)
         except Exception as e:
             self.logger.info(f"Error generating title: {e}")
