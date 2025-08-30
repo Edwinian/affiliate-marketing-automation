@@ -113,7 +113,9 @@ class AffiliateProgram(ABC):
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
         affiliate_links = (
-            custom_links or self.FIXED_AFFILIATE_LINKS or self.get_affiliate_links()
+            self.media_service.get_unused_affiliate_links(affiliate_links=custom_links)
+            or self.FIXED_AFFILIATE_LINKS
+            or self.get_affiliate_links()
         )
 
         if not affiliate_links:
