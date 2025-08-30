@@ -13,6 +13,7 @@ from common import os, load_dotenv
 
 class AWSService:
     USED_LINK_KEY = "used_affiliate_links"
+    CACHE = {}
 
     def __init__(self):
         self.logger_service = LoggerService(name=self.__class__.__name__)
@@ -53,6 +54,11 @@ class AWSService:
         Retrieve a string and creation date from an S3 bucket object.
         Returns a tuple of (content, last_modified_date) or None if retrieval fails.
         """
+        cache_content, _ = self.CACHE.get(key, (None, None))
+
+        if cache_content:
+            return cache_content, _
+
         try:
             # Validate inputs
             if not key:
@@ -78,7 +84,8 @@ class AWSService:
                     )
                     return None, None
 
-            return content, last_modified if content else (None, None)
+            self.CACHE[key] = (content, last_modified) if content else (None, None)
+            return self.CACHE[key]
 
         except ClientError as e:
             if try_count > 0:
