@@ -9,7 +9,9 @@ from logger_service import LoggerService
 
 def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None):
     logger = LoggerService(name="execute_crons")
-    affiliate_programs: list[AffiliateProgram] = [AmazonService()]
+    AMAZON_NICHES = ["beauty"]
+    AMAZON_PROGRAMS = [AmazonService(niche=niche) for niche in AMAZON_NICHES]
+    affiliate_programs: list[AffiliateProgram] = AMAZON_PROGRAMS
 
     for program in affiliate_programs:
         name = program.__class__.__name__

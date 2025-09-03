@@ -89,7 +89,11 @@ class AffiliateProgram(ABC):
                     post.title
                     for post in all_posts
                     if post.categories
-                    and link.categories[0] in [cat.name for cat in post.categories]
+                    and any(
+                        link_cat
+                        for link_cat in link.categories
+                        if link_cat in [cat.name for cat in post.categories]
+                    )
                 ]
                 title = self.wordpress.get_title(
                     affiliate_link=link, category_titles=category_titles
@@ -130,7 +134,6 @@ class AffiliateProgram(ABC):
             return self.logger.info(f"No custom or unused links.")
 
         create_links = self.create_content_for_links(affiliate_links=affiliate_links)
-        self.wordpress.update_menu_items()
 
         if not self.FIXED_AFFILIATE_LINKS:
             self.media_service.add_used_affiliate_links(used_links=create_links)

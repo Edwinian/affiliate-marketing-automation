@@ -10,15 +10,27 @@ from common import os, load_dotenv
 class AmazonService(AffiliateProgram):
     CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
     IS_PIN = True
-    WORDPRESS_CREDENTIALS = {
-        "API_URL": os.getenv("WORDPRESS_API_URL_AMAZON"),
-        "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL_AMAZON"),
-        "ACCESS_TOKEN": os.getenv("WORDPRESS_ACCESS_TOKEN_AMAZON"),
-    }
 
-    def __init__(self):
+    def __init__(self, niche: str = "beauty"):
         super().__init__()
-        # self.amazon = AmazonApi("KEY", "SECRET", "TAG", "COUNTRY")
+        self.amazon = AmazonApi(
+            key=os.getenv("AMAZON_ACCESS_KEY"),
+            secret=os.getenv("AMAZON_SECRET"),
+            tag=os.getenv("AMAZON_ASSOCIATE_TAG"),
+            country=os.getenv("AMAZON_COUNTRY"),
+        )
+        wordpress_credentials_suffix = niche.upper().replace(" ", "_")
+        self.WORDPRESS_CREDENTIALS = {
+            "API_URL": os.getenv(
+                f"WORDPRESS_API_URL_AMAZON_{wordpress_credentials_suffix}"
+            ),
+            "FRONTEND_URL": os.getenv(
+                f"WORDPRESS_FRONTEND_URL_AMAZON_{wordpress_credentials_suffix}"
+            ),
+            "ACCESS_TOKEN": os.getenv(
+                f"WORDPRESS_ACCESS_TOKEN_AMAZON_{wordpress_credentials_suffix}"
+            ),
+        }
 
     def get_program_links(self, keywords: list[str]) -> list[AffiliateLink]:
         """

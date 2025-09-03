@@ -20,10 +20,14 @@ class Channel(ABC):
         self, affiliate_link: AffiliateLink, category_titles: list[str] = []
     ) -> str:
         try:
-            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product{f" and conflicting with existing titles: {category_titles}" if category_titles else ""}, return the title only without quotes."
+            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
+
+            if category_titles:
+                prompt += f" The title relates to but should not overlap with existing titles: {', '.join(category_titles)}"
+
             title = self.llm_service.generate_text(prompt)
 
-            if LlmErrorPrompt.LENGTH_EXCEEDED in title:
+            if category_titles and LlmErrorPrompt.LENGTH_EXCEEDED in title:
                 category_titles.pop()
                 return self.get_title(affiliate_link, category_titles=category_titles)
 
