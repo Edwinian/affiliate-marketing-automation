@@ -9,7 +9,7 @@ from media_service import MediaService
 
 
 class Channel(ABC):
-    DISCLOSURE = "Disclosure: We do not work for any companies whose products/services are mentioned in our content. Affiliate links may be included, and we may earn a commission at no extra cost to you if you make a purchase through them. This helps support our work in creating more content. Thank you for your support!"
+    DISCLOSURE = "Disclosure: We may earn a commission at no extra cost to you if you make a purchase through any links included. This helps support our work in creating more content. Thank you for your support!"
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
