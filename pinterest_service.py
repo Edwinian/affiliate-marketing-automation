@@ -193,7 +193,7 @@ class PinterestService(Channel):
         return {
             "Title": self.get_pin_title(title),
             "Media URL": image_url,
-            "Pinterest board": category,
+            "Pinterest board": category.title(),
             "Description": description,
             "Link": link,
             "Publish date": publish_date,
@@ -271,7 +271,7 @@ class PinterestService(Channel):
         ]
         last_csv_path = ""
 
-        for chunk in enumerate(csv_data_chunks):
+        for chunk in csv_data_chunks:
             if chunk:
                 last_csv_path = self.generate_csv(chunk)
                 last_csv_path = last_csv_path
@@ -571,34 +571,37 @@ class PinterestService(Channel):
 
 
 if __name__ == "__main__":
-    service = PinterestService(bulk_create_limit=1)
+    service = PinterestService()
 
-    links = [
-        # AffiliateLink(
-        #     url="https://amzn.to/46d5C1d",
-        #     product_title="Kasa Smart Plug HS103P4, Smart Home Wi-Fi Outlet Works with Alexa, Echo, Google Home & IFTTT, No Hub Required, Remote Control, 15 Amp, UL Certified, 4-Pack, White",
-        #     categories=["Outlet Switches"],
-        # ),
-        # AffiliateLink(
-        #     url="https://amzn.to/3JQsU56",
-        #     product_title="Crest 3D Whitestrips Professional Effects – Teeth Whitening Kit, 22 Treatments (20 + 2 Bonus), Each with 1 Upper/1Lower, 44 Strips – Crest 3DWhite Teeth Whitening Strips",
-        #     categories=["Strips"],
-        # ),
-        # AffiliateLink(
-        #     url="https://amzn.to/4oSGC7O",
-        #     product_title="Physician's Choice Probiotics 60 Billion CFU - 10 Strains + Organic Prebiotics - Immune, Digestive & Gut Health - Supports Occasional Constipation, Diarrhea, Gas & Bloating - for Women & Men - 30ct",
-        #     categories=["Acidophilus"],
-        # ),
-        # AffiliateLink(
-        #     url="https://amzn.to/45R2Tu7",
-        #     product_title="Home-it Mop and Broom Holder Wall Mount Garden Tool Storage Tool Rack Storage & Organization for the Home Plastic Hanger for Closet Garage Organizer (5-position)",
-        #     categories=["Storage Racks"],
-        # ),
-        AffiliateLink(
-            url="https://amzn.to/4lKnRAy",
-            product_title="Amazon Basics Dog and Puppy Pee Pads, 5-Layer Leak-Proof Super Absorbent, Quick-Dry Surface, Potty Training, Regular (22x22), 100 Count, Blue & White",
-            categories=["Disposable Training Pads"],
-        ),
-    ]
-    result = service.get_bulk_create_from_affiliate_links_csv(affiliate_links=links)
+    result = service.get_keywords(limit=5)
     print(result)
+
+    # links = [
+    #     AffiliateLink(
+    #         url="https://amzn.to/41wTBCe",
+    #         product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
+    #         categories=["fall outfits"],
+    #     ),
+    #     AffiliateLink(
+    #         url="https://amzn.to/3Vwjw9s",
+    #         product_title="beetles Gel Polish Nail Set 20 Colors Fall Gel Nail Polish Set Orange Yellow Green Brown Red Soak Off Uv Lamp Need Base Glossy Matte Top Coat Manicure Kit Gift for Girls Women Cozy Campfire",
+    #         categories=["fall nails"],
+    #     ),
+    #     AffiliateLink(
+    #         url="https://amzn.to/3I1NOh9",
+    #         product_title="Braids & Buns, Ponies & Pigtails: 50 Hairstyles Every Girl Will Love",
+    #         categories=["hairstyles"],
+    #     ),
+    #     AffiliateLink(
+    #         url="https://amzn.to/4lXlyu7",
+    #         product_title="The Children's Place,Baby-Girls,and Toddler Short Sleeve Everyday Dresses,Pink School Doodle,4 Years",
+    #         categories=["first day of school outfit"],
+    #     ),
+    #     AffiliateLink(
+    #         url="https://amzn.to/4g5Dstr",
+    #         product_title="4pcs Braided Hair Extensions Clip in Braid Hair Extensions Braids Braided Hair Piece for Women Daily Wear Hair Accessories Afro Braid Ponytail Approx",
+    #         categories=["winter hair braid"],
+    #     ),
+    # ]
+    # result = service.get_bulk_create_from_affiliate_links_csv(affiliate_links=links)
+    # print(result)

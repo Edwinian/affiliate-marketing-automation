@@ -8,6 +8,7 @@ from common import os, load_dotenv, requests
 
 class MediaService:
     fetched_image_urls = []
+    fetched_query = ""
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
@@ -65,7 +66,7 @@ class MediaService:
         limit: int = 1,
         size: str = "original",
     ) -> Optional[list[str]]:
-        if len(self.fetched_image_urls) < limit:
+        if self.fetched_query != query and len(self.fetched_image_urls) < limit:
             self.fetch_image_urls(query=query, size=size, limit=limit)
 
         return self.fetched_image_urls
