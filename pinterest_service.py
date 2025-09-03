@@ -16,7 +16,7 @@ class PinterestService(Channel):
     def __init__(
         self,
         bulk_create_limit: int = 30,
-        all_publish_delay_min: int = 0,
+        all_publish_delay_min: int = 15,
         publish_increment_min: int = 15,
     ):
         super().__init__()
