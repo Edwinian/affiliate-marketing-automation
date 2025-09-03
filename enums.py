@@ -32,7 +32,7 @@ class CustomLinksKey(StrEnum):
 
 class LlmErrorPrompt(StrEnum):
     QUOTA_EXCEEDED = "insufficient credits"
-    LENGTH_EXCEEDED = "prompt length exceeded"
+    LENGTH_EXCEEDED = "total length exceeded"
 
 
 class PinterestTrendType(StrEnum):

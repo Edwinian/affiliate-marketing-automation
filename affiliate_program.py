@@ -17,7 +17,7 @@ class AffiliateProgram(ABC):
 
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
     IS_PIN = False
-    IS_SINGLE_AFFILIATE_LINK = False
+    FIXED_AFFILIATE_LINKS: List[AffiliateLink] = []
     WORDPRESS_CREDENTIALS: dict[str, str] = None
 
     def __init__(self):
@@ -51,9 +51,6 @@ class AffiliateProgram(ABC):
     def get_affiliate_links(
         self,
     ) -> list[AffiliateLink]:
-        if self.IS_SINGLE_AFFILIATE_LINK:
-            return self.get_program_links()
-
         affiliate_links = []
         keywords = (
             self.pinterest_service.get_keywords()
@@ -84,10 +81,19 @@ class AffiliateProgram(ABC):
     ) -> list[UsedLink]:
         create_links: list[UsedLink] = []
         link_images_map: dict[str, list[str]] = {}
+        all_posts = self.wordpress.get_posts()
 
         for link in affiliate_links:
             try:
-                title = self.wordpress.get_title(link)
+                category_titles = [
+                    post.title
+                    for post in all_posts
+                    if post.categories
+                    and link.categories[0] in [cat.name for cat in post.categories]
+                ]
+                title = self.wordpress.get_title(
+                    affiliate_link=link, category_titles=category_titles
+                )
                 image_urls = link_images_map.get(link.url, [])
 
                 if not image_urls:
@@ -114,11 +120,17 @@ class AffiliateProgram(ABC):
         return create_links
 
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
-        affiliate_links = custom_links or self.get_affiliate_links()
+        affiliate_links = (
+            self.media_service.get_unused_affiliate_links(affiliate_links=custom_links)
+            or self.FIXED_AFFILIATE_LINKS
+            or self.get_affiliate_links()
+        )
 
         if not affiliate_links:
             return self.logger.info(f"No custom or unused links.")
 
         create_links = self.create_content_for_links(affiliate_links=affiliate_links)
         self.wordpress.update_menu_items()
-        self.media_service.add_used_affiliate_links(used_links=create_links)
+
+        if not self.FIXED_AFFILIATE_LINKS:
+            self.media_service.add_used_affiliate_links(used_links=create_links)

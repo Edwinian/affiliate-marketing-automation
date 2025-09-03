@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from all_types import AffiliateLink, CreateChannelResponse
+from all_types import AffiliateLink, CreateChannelResponse, WordpressPost
+from enums import LlmErrorPrompt
 from llm_service import LlmService
 from logger_service import LoggerService
 from media_service import MediaService
@@ -15,10 +16,18 @@ class Channel(ABC):
         self.llm_service = LlmService()
         self.media_service = MediaService()
 
-    def get_title(self, affiliate_link: AffiliateLink) -> str:
+    def get_title(
+        self, affiliate_link: AffiliateLink, category_titles: list[str] = []
+    ) -> str:
         try:
-            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
-            return self.llm_service.generate_text(prompt)
+            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product{f" and conflicting with existing titles: {category_titles}" if category_titles else ""}, return the title only without quotes."
+            title = self.llm_service.generate_text(prompt)
+
+            if LlmErrorPrompt.LENGTH_EXCEEDED in title:
+                category_titles.pop()
+                return self.get_title(affiliate_link, category_titles=category_titles)
+
+            return title
         except Exception as e:
             self.logger.info(f"Error generating title: {e}")
             return f"{affiliate_link.categories[0]}"
