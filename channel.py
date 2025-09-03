@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
+<<<<<<< Updated upstream
 from all_types import AffiliateLink, CreateChannelResponse, WordpressPost
+=======
+from all_types import AffiliateLink, CreateChannelResponse
+>>>>>>> Stashed changes
 from enums import LlmErrorPrompt
 from llm_service import LlmService
 from logger_service import LoggerService
@@ -17,6 +21,7 @@ class Channel(ABC):
         self.media_service = MediaService()
 
     def get_title(
+<<<<<<< Updated upstream
         self, affiliate_link: AffiliateLink, category_titles: list[str] = []
     ) -> str:
         try:
@@ -27,6 +32,25 @@ class Channel(ABC):
                 category_titles.pop()
                 return self.get_title(affiliate_link, category_titles=category_titles)
 
+=======
+        self, affiliate_link: AffiliateLink, existing_titles: list[str] = []
+    ) -> str:
+        try:
+            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
+
+            if existing_titles:
+                prompt += f" The title must be different from these titles: {', '.join(existing_titles)}."
+
+            title = self.llm_service.generate_text(prompt)
+
+            if existing_titles and LlmErrorPrompt.LENGTH_EXCEEDED in title:
+                existing_titles.pop()
+                return self.get_title(
+                    affiliate_link=affiliate_link, existing_titles=existing_titles
+                )
+
+            title = self.llm_service.generate_text(prompt)
+>>>>>>> Stashed changes
             return title
         except Exception as e:
             self.logger.info(f"Error generating title: {e}")

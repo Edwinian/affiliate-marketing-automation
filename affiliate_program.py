@@ -82,6 +82,7 @@ class AffiliateProgram(ABC):
         create_links: list[UsedLink] = []
         link_images_map: dict[str, list[str]] = {}
         all_posts = self.wordpress.get_posts()
+<<<<<<< Updated upstream
 
         for link in affiliate_links:
             try:
@@ -93,6 +94,14 @@ class AffiliateProgram(ABC):
                 ]
                 title = self.wordpress.get_title(
                     affiliate_link=link, category_titles=category_titles
+=======
+        existing_titles = {post.title for post in all_posts}
+
+        for link in affiliate_links:
+            try:
+                title = self.wordpress.get_title(
+                    affiliate_link=link, existing_titles=existing_titles
+>>>>>>> Stashed changes
                 )
                 image_urls = link_images_map.get(link.url, [])
 
@@ -130,7 +139,12 @@ class AffiliateProgram(ABC):
             return self.logger.info(f"No custom or unused links.")
 
         create_links = self.create_content_for_links(affiliate_links=affiliate_links)
+<<<<<<< Updated upstream
         self.wordpress.update_menu_items()
 
         if not self.FIXED_AFFILIATE_LINKS:
             self.media_service.add_used_affiliate_links(used_links=create_links)
+=======
+        # self.wordpress.update_menu_items()
+        self.media_service.add_used_affiliate_links(used_links=create_links)
+>>>>>>> Stashed changes
