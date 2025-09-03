@@ -105,7 +105,7 @@ class PinterestService(Channel):
                 )
                 continue
 
-        success = self.generate_csv(csv_data)
+        success = self.batch_generate_csv(csv_data)
 
         if success:
             used_links = [UsedLink(url=link.url) for link in affiliate_links]
@@ -181,8 +181,12 @@ class PinterestService(Channel):
             datetime.now()
             + timedelta(minutes=self.ALL_PUBLISH_DELAY_MIN + publish_delay_min)
         ).strftime("%Y-%m-%d %H:%M:%S")
+
+        keyword_limit = 5
         keywords = self.get_keywords(
-            limit=5, include_keywords=[category]
+            limit=keyword_limit, include_keywords=[category]
+        ) or self.get_keywords_from_model(
+            limit=keyword_limit, include_keywords=[category]
         )  # Use top 5 keywords for SEO
         description = self.get_pin_description(title=title)
 
@@ -257,10 +261,38 @@ class PinterestService(Channel):
                 self.logger.error(f"Error processing post '{post.title}': {e}")
                 continue
 
-        return self.generate_csv(csv_data)
+        return self.batch_generate_csv(csv_data)
+
+    def batch_generate_csv(
+        self, csv_data: list[dict[str, str]], chunk_size: int = 5
+    ) -> str:
+        csv_data_chunks = [
+            csv_data[i : i + chunk_size] for i in range(0, len(csv_data), chunk_size)
+        ]
+        last_csv_path = ""
+
+        for chunk in enumerate(csv_data_chunks):
+            if chunk:
+                last_csv_path = self.generate_csv(chunk)
+                last_csv_path = last_csv_path
+
+        return ",".join(last_csv_path)
+
+    def get_keywords_from_model(
+        self, limit: int = 5, include_keywords: List[str] = []
+    ) -> list[str]:
+        prompt = f"Generate a list of {limit} SEO friendly keywords related to {', '.join(include_keywords)} for Pinterest separated by commas. The keywords should be relevant to popular Pinterest searches and trends. Return the keywords only"
+
+        try:
+            keywords_text = self.llm_service.generate_text(prompt)
+            keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
+            return keywords[:limit]
+        except Exception as e:
+            self.logger.error(f"Error generating keywords from model: {e}")
+            return include_keywords[:limit]
 
     def get_keywords(
-        self, limit: int = 2, include_keywords: List[str] = []
+        self, limit: int = 5, include_keywords: List[str] = []
     ) -> list[str]:
         """
         Retrieves the top trends from Pinterest by each trend type.
@@ -525,11 +557,9 @@ class PinterestService(Channel):
         """
         Generates an SEO-friendly pin description using LlmService.
         """
-        disclosure = f"\n<small>{self.DISCLOSURE}</small>"
-        limit = 750 - len(
-            disclosure
-        )  # Pinterest allows up to 800 characters, but set 750 as limit to be safe
-        prompt = f"Create a Pinterest description in no more than {limit} characters (including spaces) for this title that is SEO friendly, time-agnostic, and suitable for affiliate marketing, respond the description only: '{title}'"
+        disclosure = f"\n<small>#affiliate {self.DISCLOSURE}</small>"
+        limit = 750  # Pinterest allows up to 800 characters, but set 750 as limit to be safe
+        prompt = f"Create a Pinterest description in no more than {limit - len(disclosure)} characters (including spaces) for this title that is SEO friendly, time-agnostic, suitable for affiliate marketing, and includes a call to action, respond the description only: '{title}'"
 
         try:
             description = self.llm_service.generate_text(prompt)
