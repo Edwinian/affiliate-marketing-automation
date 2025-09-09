@@ -7,8 +7,8 @@ from common import os, load_dotenv, requests
 
 
 class MediaService:
-    fetched_image_urls = []
-    fetched_query = ""
+    query_image_map: dict[str, list[str]] = {}
+    query_count_map: dict[str, int] = {}
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
@@ -20,7 +20,8 @@ class MediaService:
         size: str,
         query: Optional[str] = None,
         next_page: Optional[str] = None,
-    ) -> Optional[list[str]]:
+        fetched_image_urls: Optional[list[str]] = [],
+    ) -> list[str]:
         """
         Fetch image URLs from Pexels API with pagination.
         """
@@ -38,38 +39,44 @@ class MediaService:
 
             response.raise_for_status()
             data = response.json()
-
-            # Extract image URLs
-            for photo in data.get("photos", []):
-                if len(self.fetched_image_urls) >= limit:
-                    return
-
-                src = photo.get("src", {})
-                image_url = src.get(size)
-
-                if image_url:
-                    self.fetched_image_urls.append(image_url)
+            photos = data.get("photos", [])
+            sources = [photo.get("src") for photo in photos if photo.get("src", None)]
+            fetched_image_urls += [
+                src.get(size) for src in sources if src.get(size, None)
+            ]
 
             # Check for next page
             next_page = data.get("next_page")
 
-            if next_page and len(self.fetched_image_urls) < limit:
+            if next_page and len(fetched_image_urls) < limit:
                 return self.fetch_image_urls(
-                    next_page=next_page, limit=limit, size=size
+                    next_page=next_page,
+                    limit=limit,
+                    size=size,
+                    fetched_image_urls=fetched_image_urls,
                 )
+
+            return fetched_image_urls
         except requests.RequestException as e:
             self.logger.error(f"Pexels API error for query '{query}': {str(e)}")
 
-    def get_image_urls(
+    def get_image_url(
         self,
         query: str,
         limit: int = 1,
         size: str = "original",
-    ) -> Optional[list[str]]:
-        if self.fetched_query != query and len(self.fetched_image_urls) < limit:
-            self.fetch_image_urls(query=query, size=size, limit=limit)
+    ) -> str:
+        query_images = self.query_image_map.get(query, [])
+        query_count = self.query_count_map.get(query, 0)
 
-        return self.fetched_image_urls
+        if len(query_images) < max(limit, query_count + 1):
+            images = self.fetch_image_urls(query=query, size=size, limit=limit)
+            self.query_image_map[query] = images
+
+        new_count = query_count + 1
+        self.query_count_map[query] = new_count
+
+        return self.query_image_map[query][new_count]
 
     def add_used_affiliate_links(self, used_links: list[UsedLink] = []) -> None:
         """

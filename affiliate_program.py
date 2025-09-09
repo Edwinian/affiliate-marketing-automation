@@ -80,7 +80,6 @@ class AffiliateProgram(ABC):
         self, affiliate_links: list[AffiliateLink]
     ) -> list[UsedLink]:
         create_links: list[UsedLink] = []
-        link_images_map: dict[str, list[str]] = {}
         all_posts = self.wordpress.get_posts()
 
         for link in affiliate_links:
@@ -98,16 +97,14 @@ class AffiliateProgram(ABC):
                 title = self.wordpress.get_title(
                     affiliate_link=link, category_titles=category_titles
                 )
-                image_urls = link_images_map.get(link.url, [])
-
-                if not image_urls:
-                    image_urls = self.media_service.get_image_urls(query=title)
-                    link_images_map[link.url] = image_urls
 
                 try:
+                    image_url = self.media_service.get_image_url(
+                        query=link.categories[0]
+                    )
                     new_post = self.wordpress.create(
                         title=title,
-                        image_url=image_urls[0] if image_urls else "",
+                        image_url=image_url,
                         affiliate_link=link,
                     )
 

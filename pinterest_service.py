@@ -4,6 +4,8 @@ from urllib.parse import urlencode
 import uuid
 import requests
 from typing import Dict, List, Any, Optional
+
+from sklearn.base import defaultdict
 from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink, WordpressPost
 from channel import Channel
 from enums import PinterestTrendType
@@ -12,6 +14,8 @@ from common import os, load_dotenv, requests
 
 
 class PinterestService(Channel):
+    query_keywords_map: dict[str, list[str]] = {}
+
     def __init__(
         self,
         bulk_create_limit: int = 30,
@@ -38,6 +42,20 @@ class PinterestService(Channel):
             if not self.refresh_access_token():
                 self.logger.error("Failed to refresh access token.")
 
+    def get_category_counts(
+        self,
+        pin_sources: List[AffiliateLink | WordpressPost],
+    ) -> dict[str, int]:
+        count_dict = defaultdict(int)
+
+        for source in pin_sources:
+            for category in source.categories:  # Check every category in the list
+                count_dict[
+                    category
+                ] += 1  # Note: This counts *any* occurrence, not just first
+
+        return dict(count_dict)
+
     def get_bulk_create_from_affiliate_links_csv(
         self, affiliate_links: List[AffiliateLink]
     ):
@@ -52,6 +70,7 @@ class PinterestService(Channel):
         all_pins = self.get_pins()
         pin_titles = [pin.title for pin in all_pins]
         pin_links = [pin.link for pin in all_pins]
+        category_counts = self.get_category_counts(pin_sources=unused_links)
 
         for i, affiliate_link in enumerate(unused_links):
             if len(csv_data) >= self.BULK_CREATE_LIMIT:
@@ -88,6 +107,7 @@ class PinterestService(Channel):
                     category=category,
                     link=link,
                     publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
+                    image_limit=category_counts[category],
                 )
 
                 if not data_row:
@@ -171,30 +191,33 @@ class PinterestService(Channel):
         category: str,
         link: str,
         publish_delay_min: int,
+        image_limit: int = 1,
     ):
         if len(link) > 2000:
             self.logger.warning(f"Link too long (>2000 chars), skipping: {link}")
             return
 
-        image_urls = self.media_service.get_image_urls(query=title, limit=1)
+        image_url = self.media_service.get_image_url(query=category, limit=image_limit)
 
-        if not image_urls:
+        if not image_url:
             self.logger.warning(f"No image found for '{title}'")
             return
 
-        image_url = image_urls[0]
         publish_date = (
             datetime.now()
             + timedelta(minutes=self.ALL_PUBLISH_DELAY_MIN + publish_delay_min)
         ).strftime("%Y-%m-%d %H:%M:%S")
-
-        keyword_limit = 5
-        keywords = self.get_keywords(
-            limit=keyword_limit, include_keywords=[category]
-        ) or self.get_keywords_from_model(
-            limit=keyword_limit, include_keywords=[category]
-        )  # Use top 5 keywords for SEO
         description = self.get_pin_description(title=title)
+
+        keyword_limit = 5  # Use top 5 keywords for SEO
+        keywords = (
+            self.query_keywords_map.get(category, [])
+            or self.get_keywords(limit=keyword_limit, include_keywords=[category])
+            or self.get_keywords_from_model(
+                limit=keyword_limit, include_keywords=[category]
+            )
+        )
+        self.query_keywords_map[category] = keywords
 
         return {
             "Title": self.get_pin_title(title),
@@ -227,6 +250,7 @@ class PinterestService(Channel):
             return ""
 
         csv_data = []
+        category_counts = self.get_category_counts(pin_sources=posts_with_no_pins)
 
         for i, post in enumerate(posts_with_no_pins):
             if len(csv_data) >= limit or self.BULK_CREATE_LIMIT:
@@ -253,6 +277,7 @@ class PinterestService(Channel):
                     category=category,
                     link=link,
                     publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
+                    image_limit=category_counts[category],
                 )
 
                 if not data_row:
