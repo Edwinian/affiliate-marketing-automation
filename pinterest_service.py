@@ -7,7 +7,6 @@ from typing import Dict, List, Any, Optional
 from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink, WordpressPost
 from channel import Channel
 from enums import PinterestTrendType
-from wordpress_service import WordpressService
 
 from common import os, load_dotenv, requests
 
@@ -105,15 +104,20 @@ class PinterestService(Channel):
                 )
                 continue
 
-        success = self.batch_generate_csv(csv_data)
+        csv_file_paths = self.batch_generate_csv(csv_data)
 
-        if success:
-            used_links = [UsedLink(url=link.url) for link in affiliate_links]
+        if csv_file_paths:
+            used_links = [
+                UsedLink(url=link.url) for link in affiliate_links[: len(csv_data)]
+            ]
             self.media_service.add_used_affiliate_links(used_links=used_links)
+            return f"CSV generation succeeded. Generated files: {', '.join(csv_file_paths)}"
+        else:
+            return "CSV generation failed for affiliate links."
 
-        return f"CSV generation {'succeeded' if success else 'failed'} for affiliate links."
-
-    def generate_csv(self, csv_data: List[Dict[str, Any]]) -> str:
+    def generate_csv(
+        self, csv_data: List[Dict[str, Any]], file_suffix: Optional[str] = None
+    ) -> str:
         """
         Generates a CSV file for bulk pin creation with Pinterest-compatible headers.
         Returns the file path or empty string on failure.
@@ -124,7 +128,9 @@ class PinterestService(Channel):
 
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_file_path = f"bulk_pins_{timestamp}.csv"
+            csv_file_path = (
+                f"bulk_pins_{timestamp}{f"_{file_suffix}" if file_suffix else ""}.csv"
+            )
             with open(
                 csv_file_path, mode="w", newline="", encoding="utf-8"
             ) as csv_file:
@@ -261,22 +267,41 @@ class PinterestService(Channel):
                 self.logger.error(f"Error processing post '{post.title}': {e}")
                 continue
 
-        return self.batch_generate_csv(csv_data)
+            csv_file_paths = self.batch_generate_csv(csv_data)
+
+            if csv_file_paths:
+                return f"CSV generation succeeded. Generated files: {', '.join(csv_file_paths)}"
+            else:
+                return "CSV generation failed for affiliate links."
 
     def batch_generate_csv(
         self, csv_data: list[dict[str, str]], chunk_size: int = 5
-    ) -> str:
+    ) -> list[str]:
+        """
+        Generates multiple CSV files for bulk pin creation, each containing up to chunk_size rows.
+        Returns a list of file paths for the generated CSV files.
+        """
+        if not csv_data:
+            self.logger.info("No CSV data to process.")
+            return []
+
+        csv_file_paths = []
         csv_data_chunks = [
             csv_data[i : i + chunk_size] for i in range(0, len(csv_data), chunk_size)
         ]
-        last_csv_path = ""
 
-        for chunk in csv_data_chunks:
+        for i, chunk in enumerate(csv_data_chunks):
             if chunk:
-                last_csv_path = self.generate_csv(chunk)
-                last_csv_path = last_csv_path
+                csv_file_path = self.generate_csv(
+                    csv_data=chunk, file_suffix=str(i + 1) if i > 0 else None
+                )
+                if csv_file_path:
+                    csv_file_paths.append(csv_file_path)
+                    self.logger.info(f"Generated CSV file {i+1}: {csv_file_path}")
+                else:
+                    self.logger.error(f"Failed to generate CSV file for chunk {i+1}")
 
-        return ",".join(last_csv_path)
+        return csv_file_paths
 
     def get_keywords_from_model(
         self, limit: int = 5, include_keywords: List[str] = []
@@ -573,35 +598,60 @@ class PinterestService(Channel):
 if __name__ == "__main__":
     service = PinterestService()
 
-    result = service.get_keywords(limit=5)
-    print(result)
-
-    # links = [
-    #     AffiliateLink(
-    #         url="https://amzn.to/41wTBCe",
-    #         product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
-    #         categories=["fall outfits"],
-    #     ),
-    #     AffiliateLink(
-    #         url="https://amzn.to/3Vwjw9s",
-    #         product_title="beetles Gel Polish Nail Set 20 Colors Fall Gel Nail Polish Set Orange Yellow Green Brown Red Soak Off Uv Lamp Need Base Glossy Matte Top Coat Manicure Kit Gift for Girls Women Cozy Campfire",
-    #         categories=["fall nails"],
-    #     ),
-    #     AffiliateLink(
-    #         url="https://amzn.to/3I1NOh9",
-    #         product_title="Braids & Buns, Ponies & Pigtails: 50 Hairstyles Every Girl Will Love",
-    #         categories=["hairstyles"],
-    #     ),
-    #     AffiliateLink(
-    #         url="https://amzn.to/4lXlyu7",
-    #         product_title="The Children's Place,Baby-Girls,and Toddler Short Sleeve Everyday Dresses,Pink School Doodle,4 Years",
-    #         categories=["first day of school outfit"],
-    #     ),
-    #     AffiliateLink(
-    #         url="https://amzn.to/4g5Dstr",
-    #         product_title="4pcs Braided Hair Extensions Clip in Braid Hair Extensions Braids Braided Hair Piece for Women Daily Wear Hair Accessories Afro Braid Ponytail Approx",
-    #         categories=["winter hair braid"],
-    #     ),
-    # ]
-    # result = service.get_bulk_create_from_affiliate_links_csv(affiliate_links=links)
+    # result = service.get_keywords(limit=5)
     # print(result)
+
+    links = [
+        AffiliateLink(
+            url="https://amzn.to/4m4VwVO",
+            product_title="Glamnetic Reusable Press On Nails Berry Maroon Stick On",
+            categories=["fall nails"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/3VFOBHP",
+            product_title="Beetles Gel Nail Polish Kit, 23Pcs Fall Nude Pink Brown Burgundy Red Gel Polish Set with Base Top Coat Verse of Roses Kit, Soak off Uv Gel Golden Glitter Holiday Nail for Women",
+            categories=["fall nails"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/46hjnfj",
+            product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
+            categories=["fall outfits"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/42m8t6u",
+            product_title="LILLUSORY Women's Oversized Batwing Sweaters 2025 Fall Outfits Trendy Crewneck Knit Side Slit Fashion Pullover Tops",
+            categories=["fall outfits"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/42k8xnp",
+            product_title="SOLY HUX Women's Summer Sleeveless Belted Tank Romper Short Jumpsuit",
+            categories=["outfit ideas"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/4nqDSNx",
+            product_title="Trendy Queen Womens Flannel Shacket Casual Jacket Plaid Button Down Long Sleeve Shirt Fall Winter Outfits",
+            categories=["outfit ideas"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/4pgsANl",
+            product_title="Wide Headbands for Women Black Stylish Head Wraps Boho Thick Hairbands Large African Sport Yoga Turban Headband Hair Accessories (Pack of 4)",
+            categories=["winter hair braid"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/4nlwzGC",
+            product_title="Human Braiding Hair for Boho Braids 110g 20 Inch Deep Water Wave Bulk Human Hair for Braiding No Weft 12A Wet and Wavy Curly Human Hair Extensions 2 Bundles/Pack Natural Color",
+            categories=["winter hair braid"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/41JHNfW",
+            product_title="CHICWISH Women's Classy Open Front Knit Coat Cardigan Coatigan Light Jacket",
+            categories=["winter fashion inspo"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/3HS4o3f",
+            product_title="ZAFUL Women's Off The Shoulder Sweater Cute Cozy Pullover Knit Sweater Top Loose Party Going Out Clothes",
+            categories=["winter fashion inspo"],
+        ),
+    ]
+    result = service.get_bulk_create_from_affiliate_links_csv(affiliate_links=links)
+    print(result)
