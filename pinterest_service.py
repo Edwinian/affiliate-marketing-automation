@@ -611,17 +611,21 @@ class PinterestService(Channel):
         """
         Generates an SEO-friendly pin description using LlmService.
         """
-        disclosure = f"\n #affiliate {self.DISCLOSURE}"
+        disclosure = f"\n#affiliate {self.DISCLOSURE}"
         limit = 500  # Pinterest limit
         prompt = f"Create a Pinterest description in no more than {limit - len(disclosure)} characters (including spaces) for this title that is SEO friendly, time-agnostic, suitable for affiliate marketing, and includes a call to action, respond the description only without mentioning the length limit: '{title}'"
 
         try:
-            description = self.llm_service.generate_text(prompt)
-            description += disclosure
-            return description[:limit]
+            description = self.llm_service.generate_text(
+                prompt
+            ).strip()  # Remove any trailing newlines from LLM output
+            description = f"{description}\n#affiliate {self.DISCLOSURE}"  # Ensure disclosure is on a new line
+            return description[:limit]  # Truncate to Pinterest's 500-character limit
         except Exception as e:
             self.logger.error(f"Error generating description: {e}")
-            return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!"
+            return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!\n#affiliate {self.DISCLOSURE}"[
+                :limit
+            ]
 
 
 if __name__ == "__main__":
