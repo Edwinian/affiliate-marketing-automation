@@ -57,10 +57,14 @@ class PinterestService(Channel):
         return dict(count_dict)
 
     def get_bulk_create_from_affiliate_links_csv(
-        self, affiliate_links: List[AffiliateLink]
+        self, affiliate_links: List[AffiliateLink], skipUsedCheck: bool = False
     ):
-        unused_links = self.media_service.get_unused_affiliate_links(
-            affiliate_links=affiliate_links
+        unused_links = (
+            affiliate_links
+            if skipUsedCheck
+            else self.media_service.get_unused_affiliate_links(
+                affiliate_links=affiliate_links
+            )
         )
 
         if not unused_links:
@@ -678,5 +682,7 @@ if __name__ == "__main__":
             categories=["winter fashion inspo"],
         ),
     ]
-    result = service.get_bulk_create_from_affiliate_links_csv(affiliate_links=links)
+    result = service.get_bulk_create_from_affiliate_links_csv(
+        affiliate_links=links, skipUsedCheck=True
+    )
     print(result)

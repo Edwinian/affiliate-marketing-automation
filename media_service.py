@@ -9,6 +9,7 @@ from common import os, load_dotenv, requests
 class MediaService:
     query_image_map: dict[str, list[str]] = {}
     query_count_map: dict[str, int] = {}
+    used_image_urls: list[str] = []
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
@@ -16,21 +17,31 @@ class MediaService:
 
     def fetch_image_urls(
         self,
-        limit: int,
-        size: str,
+        limit: int = 1,
+        size: str = "original",
         query: Optional[str] = None,
         next_page: Optional[str] = None,
         fetched_image_urls: Optional[list[str]] = [],
     ) -> list[str]:
         """
-        Fetch image URLs from Pexels API with pagination.
+        Fetch image URLs from Pexels API with pagination, preserving relevance order.
+
+        Args:
+            limit (int): Maximum number of URLs to fetch.
+            size (str): Image size (e.g., 'original', 'large').
+            query (Optional[str]): Search query for images.
+            next_page (Optional[str]): URL for the next page of results.
+            fetched_image_urls (Optional[list[str]]): Accumulated image URLs.
+
+        Returns:
+            list[str]: List of image URLs in relevance order, up to the limit.
         """
         try:
             if next_page:
                 response = requests.get(url=next_page)
             else:
                 url = "https://api.pexels.com/v1/search"
-                params = {"query": query, "per_page": 80}
+                params = {"query": query.lower(), "per_page": 80}
                 response = requests.get(
                     url,
                     headers={"Authorization": os.getenv("PEXELS_API_KEY")},
@@ -40,25 +51,23 @@ class MediaService:
             response.raise_for_status()
             data = response.json()
             photos = data.get("photos", [])
-            sources = [photo.get("src") for photo in photos if photo.get("src", None)]
-            fetched_image_urls += [
-                src.get(size) for src in sources if src.get(size, None)
-            ]
-
-            # Check for next page
+            sources = [photo.get("src") for photo in photos if photo.get("src")]
+            fetched_image_urls += [src.get(size) for src in sources if src.get(size)]
             next_page = data.get("next_page")
 
             if next_page and len(fetched_image_urls) < limit:
                 return self.fetch_image_urls(
-                    next_page=next_page,
                     limit=limit,
                     size=size,
+                    query=query,
+                    next_page=next_page,
                     fetched_image_urls=fetched_image_urls,
                 )
 
             return fetched_image_urls
         except requests.RequestException as e:
             self.logger.error(f"Pexels API error for query '{query}': {str(e)}")
+            return fetched_image_urls
 
     def get_image_url(
         self,
@@ -66,17 +75,51 @@ class MediaService:
         limit: int = 1,
         size: str = "original",
     ) -> str:
+        """
+        Fetch a single unused image URL for the given query, prioritizing relevance.
+
+        Args:
+            query (str): Search query for images.
+            limit (int): Number of images to fetch if cache is empty or insufficient.
+            size (str): Image size (e.g., 'original', 'large').
+
+        Returns:
+            str: A single unused image URL, or empty string if none available.
+        """
+        query = query.lower()
         query_images = self.query_image_map.get(query, [])
         query_count = self.query_count_map.get(query, 0)
 
-        if len(query_images) < max(limit, query_count + 1):
-            images = self.fetch_image_urls(query=query, size=size, limit=limit)
+        # Fetch new images if cache is empty or insufficient
+        if len(query_images) <= query_count:
+            images = self.fetch_image_urls(query=query, size=size, limit=max(limit, 10))
+            if not images:
+                self.logger.warning(f"No images found for query '{query}'")
+                return ""
             self.query_image_map[query] = images
+            query_count = 0  # Reset count for new images
 
-        new_count = query_count + 1
-        self.query_count_map[query] = new_count
+        # Find the next unused image
+        while query_count < len(self.query_image_map[query]):
+            image_url = self.query_image_map[query][query_count]
+            if image_url not in self.used_image_urls:
+                self.query_count_map[query] = query_count + 1
+                self.used_image_urls.append(image_url)
+                return image_url
+            query_count += 1
 
-        return self.query_image_map[query][new_count]
+        # If all cached images are used, fetch more
+        self.logger.info(f"All cached images for '{query}' used, fetching more.")
+        images = self.fetch_image_urls(query=query, size=size, limit=max(limit, 10))
+        if not images:
+            self.logger.warning(f"No more images available for query '{query}'")
+            return ""
+
+        self.query_image_map[query] = images
+        self.query_count_map[query] = 1
+        image_url = images[0]
+        self.used_image_urls.append(image_url)
+        return image_url
 
     def add_used_affiliate_links(self, used_links: list[UsedLink] = []) -> None:
         """
@@ -142,3 +185,12 @@ class MediaService:
             return False
 
         return unused_links
+
+
+if __name__ == "__main__":
+    service = MediaService()
+    urls = service.fetch_image_urls(
+        query="winter fashion inspo",
+        limit=10,
+    )
+    print(urls[:5])
