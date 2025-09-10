@@ -611,9 +611,9 @@ class PinterestService(Channel):
         """
         Generates an SEO-friendly pin description using LlmService.
         """
-        disclosure = f"\n<small>#affiliate {self.DISCLOSURE}</small>"
-        limit = 750  # Pinterest allows up to 800 characters, but set 750 as limit to be safe
-        prompt = f"Create a Pinterest description in no more than {limit - len(disclosure)} characters (including spaces) for this title that is SEO friendly, time-agnostic, suitable for affiliate marketing, and includes a call to action, respond the description only: '{title}'"
+        disclosure = f"\n #affiliate {self.DISCLOSURE}"
+        limit = 500  # Pinterest limit
+        prompt = f"Create a Pinterest description in no more than {limit - len(disclosure)} characters (including spaces) for this title that is SEO friendly, time-agnostic, suitable for affiliate marketing, and includes a call to action, respond the description only without mentioning the length limit: '{title}'"
 
         try:
             description = self.llm_service.generate_text(prompt)
