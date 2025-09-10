@@ -631,62 +631,62 @@ class PinterestService(Channel):
 if __name__ == "__main__":
     service = PinterestService()
 
-    # result = service.get_keywords(limit=5)
+    # result = service.get_keywords(limit=6)
     # print(result)
 
     links = [
         AffiliateLink(
-            url="https://amzn.to/4m4VwVO",
-            product_title="Glamnetic Reusable Press On Nails Berry Maroon Stick On",
+            url="https://amzn.to/41J1u7I",
+            product_title="BTArtbox French Tip Press On Nails, Short Almond Supremely Fit & Natural Glue On Nails with Nail Glue, Reusable Stick On Nails in 16 Sizes - 30 Soft Gel Fake Nails Kit, Morning Coffee",
             categories=["fall nails"],
         ),
         AffiliateLink(
-            url="https://amzn.to/3VFOBHP",
-            product_title="Beetles Gel Nail Polish Kit, 23Pcs Fall Nude Pink Brown Burgundy Red Gel Polish Set with Base Top Coat Verse of Roses Kit, Soak off Uv Gel Golden Glitter Holiday Nail for Women",
+            url="https://amzn.to/4nsxGVh",
+            product_title="Fall Press on Nails Short Almond Fake Nails Brown French Tip False Nails with Designs Cute Flowers Hearts Acrylic Nails Full Cover Round Head Brown Glue on Nails for Women Girls Autumn Nail Art",
             categories=["fall nails"],
         ),
         AffiliateLink(
-            url="https://amzn.to/46hjnfj",
-            product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
-            categories=["fall outfits"],
-        ),
-        AffiliateLink(
-            url="https://amzn.to/42m8t6u",
-            product_title="LILLUSORY Women's Oversized Batwing Sweaters 2025 Fall Outfits Trendy Crewneck Knit Side Slit Fashion Pullover Tops",
-            categories=["fall outfits"],
-        ),
-        AffiliateLink(
-            url="https://amzn.to/42k8xnp",
-            product_title="SOLY HUX Women's Summer Sleeveless Belted Tank Romper Short Jumpsuit",
-            categories=["outfit ideas"],
-        ),
-        AffiliateLink(
-            url="https://amzn.to/4nqDSNx",
+            url="https://amzn.to/4nmT8uD",
             product_title="Trendy Queen Womens Flannel Shacket Casual Jacket Plaid Button Down Long Sleeve Shirt Fall Winter Outfits",
-            categories=["outfit ideas"],
+            categories=["fall outfits"],
         ),
         AffiliateLink(
-            url="https://amzn.to/4pgsANl",
+            url="hhttps://amzn.to/4m9Cmy7",
+            product_title="AUTOMET Womens Fall Outfits Fashion Clothes Shackets Flannel Plaid Button Down Long Sleeve Shirts Jackets",
+            categories=["fall outfits"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/4mT9VWj",
+            product_title="Harewom Head Wraps for Black Women Stretch Head Scarf Long African Hair Wraps Turban Headwraps Jersey Headbands",
+            categories=["winter hair braid"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/4npnuwH",
             product_title="Wide Headbands for Women Black Stylish Head Wraps Boho Thick Hairbands Large African Sport Yoga Turban Headband Hair Accessories (Pack of 4)",
             categories=["winter hair braid"],
         ),
         AffiliateLink(
-            url="https://amzn.to/4nlwzGC",
-            product_title="Human Braiding Hair for Boho Braids 110g 20 Inch Deep Water Wave Bulk Human Hair for Braiding No Weft 12A Wet and Wavy Curly Human Hair Extensions 2 Bundles/Pack Natural Color",
-            categories=["winter hair braid"],
-        ),
-        AffiliateLink(
-            url="https://amzn.to/41JHNfW",
-            product_title="CHICWISH Women's Classy Open Front Knit Coat Cardigan Coatigan Light Jacket",
+            url="https://amzn.to/3I642pO",
+            product_title="AlvaQ Sweatshirt for Women Oversized Casual Long Sleeve Button Henley Neck Pullover Tunic Tops Fall Fashion Outfits",
             categories=["winter fashion inspo"],
         ),
         AffiliateLink(
-            url="https://amzn.to/3HS4o3f",
-            product_title="ZAFUL Women's Off The Shoulder Sweater Cute Cozy Pullover Knit Sweater Top Loose Party Going Out Clothes",
+            url="https://amzn.to/45VW8Z8",
+            product_title="Tickled Teal Women’s Soft Long Sleeve Pocket Cardigan",
             categories=["winter fashion inspo"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/47Cqoth",
+            product_title="Let’s Get Deep® Date Night Dice by Relatable, Roll for 200+ Unique Date Night Ideas, Gifts, and Wedding Gifts For Couples, Includes 4 Custom Dice and Instructions, Designed For Couples Ages 18+",
+            categories=["date planning inspo"],
+        ),
+        AffiliateLink(
+            url="https://amzn.to/46wCVgI",
+            product_title="Peace of Mind Planner: Important Information about My Belongings, Business Affairs, and Wishes",
+            categories=["date planning inspo"],
         ),
     ]
     result = service.get_bulk_create_from_affiliate_links_csv(
-        affiliate_links=links, skipUsedCheck=True
+        affiliate_links=links, skipUsedCheck=False
     )
     print(result)

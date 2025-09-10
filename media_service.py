@@ -1,3 +1,4 @@
+import random
 from typing import Optional
 from all_types import AffiliateLink, UsedLink
 from aws_service import AWSService
@@ -8,7 +9,6 @@ from common import os, load_dotenv, requests
 
 class MediaService:
     query_image_map: dict[str, list[str]] = {}
-    query_count_map: dict[str, int] = {}
     used_image_urls: list[str] = []
 
     def __init__(self):
@@ -88,36 +88,26 @@ class MediaService:
         """
         query = query.lower()
         query_images = self.query_image_map.get(query, [])
-        query_count = self.query_count_map.get(query, 0)
 
         # Fetch new images if cache is empty or insufficient
-        if len(query_images) <= query_count:
+        if len(query_images) < limit:
             images = self.fetch_image_urls(query=query, size=size, limit=max(limit, 10))
+
             if not images:
                 self.logger.warning(f"No images found for query '{query}'")
                 return ""
+
             self.query_image_map[query] = images
-            query_count = 0  # Reset count for new images
+
+        query_images = self.query_image_map[query]
+        random_image_idx = random.randint(0, len(query_images) - 1)
+        image_url = query_images[random_image_idx]
 
         # Find the next unused image
-        while query_count < len(self.query_image_map[query]):
-            image_url = self.query_image_map[query][query_count]
-            if image_url not in self.used_image_urls:
-                self.query_count_map[query] = query_count + 1
-                self.used_image_urls.append(image_url)
-                return image_url
-            query_count += 1
+        while image_url in self.used_image_urls:
+            random_image_idx = random.randint(0, len(query_images) - 1)
+            image_url = query_images[random_image_idx]
 
-        # If all cached images are used, fetch more
-        self.logger.info(f"All cached images for '{query}' used, fetching more.")
-        images = self.fetch_image_urls(query=query, size=size, limit=max(limit, 10))
-        if not images:
-            self.logger.warning(f"No more images available for query '{query}'")
-            return ""
-
-        self.query_image_map[query] = images
-        self.query_count_map[query] = 1
-        image_url = images[0]
         self.used_image_urls.append(image_url)
         return image_url
 
