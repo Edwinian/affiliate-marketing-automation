@@ -20,7 +20,7 @@ class Channel(ABC):
         self, affiliate_link: AffiliateLink, category_titles: list[str] = []
     ) -> str:
         try:
-            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, return the title only without quotes."
+            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, separate each word with space, return the title only without quotes."
 
             if category_titles:
                 prompt += f" The title relates to but should not overlap with existing titles: {', '.join(category_titles)}"
