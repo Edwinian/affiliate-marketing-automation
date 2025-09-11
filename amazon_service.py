@@ -53,6 +53,7 @@ class AmazonService(AffiliateProgram):
                         "Offers.Listings.Price",
                         "ItemInfo.CustomerReviews",
                         "ItemInfo.Classifications",
+                        "Images.Primary.Large",  # Thumbnail URL
                     ],
                     sort_by=models.SortBy.FEATURED,
                 )
@@ -63,30 +64,37 @@ class AmazonService(AffiliateProgram):
                     max_reviews = 0
 
                     for item in response.items:
-                        affiliate_link = item.detail_page_url
+                        affiliate_link_url = item.detail_page_url
                         product_title = item.item_info.title.display_value
 
-                        if (
-                            not affiliate_link
-                            or not product_title
-                            or "amazon" in product_title.lower()
-                        ):
+                        if not affiliate_link_url or "amazon" in product_title.lower():
                             continue
 
                         num_reviews = item.customer_reviews.count or 0
-                        product_category = (
-                            item.item_info.classifications.product_group.display_value
-                            if item.item_info.classifications
-                            else "Others"
-                        )
 
                         # Update best link if this item has more reviews
                         if num_reviews > max_reviews:
                             max_reviews = num_reviews
-                            best_link = AffiliateLink(
-                                url=affiliate_link,
-                                categories=[product_category],
+                            product_category = (
+                                item.item_info.classifications.product_group.display_value
+                                if item.item_info.classifications
+                                else "Others"
                             )
+                            thumbnail_url = (
+                                item.images.primary.large.url
+                                if item.images
+                                and item.images.primary
+                                and item.images.primary.large
+                                else None
+                            )
+                            best_link = AffiliateLink(
+                                url=affiliate_link_url,
+                                product_title=product_title,
+                                categories=[product_category],
+                                thumbnail_url=thumbnail_url,
+                            )
+
+                            max_reviews = num_reviews
 
                     affiliate_links.append(best_link)
 

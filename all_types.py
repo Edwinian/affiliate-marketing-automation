@@ -31,6 +31,7 @@ class AffiliateLink:
     url: str
     product_title: str
     categories: list[str]
+    thumbnail_url: Optional[str] = None
 
 
 @dataclass

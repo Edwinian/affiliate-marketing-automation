@@ -14,13 +14,14 @@ from common import os, load_dotenv, requests
 
 
 class PinterestService(Channel):
+    VAGUE_KEYWORDS = ["outfit ideas"]
     query_keywords_map: dict[str, list[str]] = {}
 
     def __init__(
         self,
         bulk_create_limit: int = 30,
         all_publish_delay_min: int = 15,
-        publish_increment_min: int = 15,
+        publish_increment_min: int = 5,
     ):
         super().__init__()
         self.base_url = "https://api.pinterest.com/v5"
@@ -112,6 +113,7 @@ class PinterestService(Channel):
                     link=link,
                     publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
                     image_limit=category_counts[category],
+                    thumbnail_url=affiliate_link.thumbnail_url,
                 )
 
                 if not data_row:
@@ -196,12 +198,15 @@ class PinterestService(Channel):
         link: str,
         publish_delay_min: int,
         image_limit: int = 1,
+        thumbnail_url: Optional[str] = None,
     ):
         if len(link) > 2000:
             self.logger.warning(f"Link too long (>2000 chars), skipping: {link}")
             return
 
-        image_url = self.media_service.get_image_url(query=category, limit=image_limit)
+        image_url = thumbnail_url or self.media_service.get_image_url(
+            query=category, limit=image_limit
+        )
 
         if not image_url:
             self.logger.warning(f"No image found for '{title}'")
@@ -386,6 +391,11 @@ class PinterestService(Channel):
             trends = _get_trends(trend_type)
             for trend in trends:
                 trend_count[trend] = trend_count.get(trend, 0) + 1
+
+        # Remove vague keywords not useful for tags
+        trend_count = {
+            k: v for k, v in trend_count.items() if k not in self.VAGUE_KEYWORDS
+        }
 
         # Sort trends by count (descending) and then by word count (descending) for ties
         sorted_trends = sorted(
@@ -631,59 +641,69 @@ class PinterestService(Channel):
 if __name__ == "__main__":
     service = PinterestService()
 
-    # result = service.get_keywords(limit=6)
+    # result = service.get_keywords(limit=5)
     # print(result)
 
     links = [
         AffiliateLink(
-            url="https://amzn.to/41J1u7I",
-            product_title="BTArtbox French Tip Press On Nails, Short Almond Supremely Fit & Natural Glue On Nails with Nail Glue, Reusable Stick On Nails in 16 Sizes - 30 Soft Gel Fake Nails Kit, Morning Coffee",
             categories=["fall nails"],
+            url="https://amzn.to/46fAGNM",
+            product_title="BTArtbox Press On Nails Short - Dark Red Press on Nails, Short Oval Fake Nails with Nail Glue, Fit Perfectly & Natural Reusable Stick on Nails in 16 Sizes Soft Gel Nail Kit, Coffee Bean",
+            thumbnail_url="https://m.media-amazon.com/images/I/61xZBWKjDSL._SL1500_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/4nsxGVh",
-            product_title="Fall Press on Nails Short Almond Fake Nails Brown French Tip False Nails with Designs Cute Flowers Hearts Acrylic Nails Full Cover Round Head Brown Glue on Nails for Women Girls Autumn Nail Art",
             categories=["fall nails"],
+            url="https://amzn.to/4m8RBqU",
+            product_title="GLAMERMAID Cherry Red Press on Nails Medium Almond, Handmade Jelly Soft Gel Dark Red Glue on Nails Stiletto, Burgundy Emo Fake Nails Short Oval, Reusable Acrylic Stick on False Nails Kit for Women",
+            thumbnail_url="https://m.media-amazon.com/images/I/61xZBWKjDSL._SL1500_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/4nmT8uD",
-            product_title="Trendy Queen Womens Flannel Shacket Casual Jacket Plaid Button Down Long Sleeve Shirt Fall Winter Outfits",
             categories=["fall outfits"],
+            url="https://amzn.to/3K3AVnv",
+            product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
+            thumbnail_url="https://m.media-amazon.com/images/I/71l9N09tGUL._AC_SY741_.jpg",
         ),
         AffiliateLink(
-            url="hhttps://amzn.to/4m9Cmy7",
-            product_title="AUTOMET Womens Fall Outfits Fashion Clothes Shackets Flannel Plaid Button Down Long Sleeve Shirts Jackets",
             categories=["fall outfits"],
+            url="https://amzn.to/41N7vjG",
+            product_title="PRETTYGARDEN Women's 2 Piece Outfits Casual Lapel Half Zip Sweatshirts And Wide Leg Pants Tracksuit Sets",
+            thumbnail_url="https://m.media-amazon.com/images/I/61mVGvGfGKL._AC_SY741_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/4mT9VWj",
-            product_title="Harewom Head Wraps for Black Women Stretch Head Scarf Long African Hair Wraps Turban Headwraps Jersey Headbands",
             categories=["winter hair braid"],
+            url="https://amzn.to/3VvZoVf",
+            product_title="DIGUAN Messy Wide 2 Strands Synthetic Hair Braided Headband Hairpiece Women Girl Beauty accessory, 62g/2.1 oz (Dark Brown)",
+            thumbnail_url="https://m.media-amazon.com/images/I/710SdcR1JML._SL1500_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/4npnuwH",
-            product_title="Wide Headbands for Women Black Stylish Head Wraps Boho Thick Hairbands Large African Sport Yoga Turban Headband Hair Accessories (Pack of 4)",
             categories=["winter hair braid"],
+            url="https://amzn.to/3HSqNxp",
+            product_title="Xiaofeng 3 Packs 24Inch Kanekalon Braiding Hair Extensions Ombre Jumbo Synthetic Braids Hair Purple-Lake Blue-Light Purple",
+            thumbnail_url="https://m.media-amazon.com/images/I/71ZstQ9ec-L._SL1088_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/3I642pO",
-            product_title="AlvaQ Sweatshirt for Women Oversized Casual Long Sleeve Button Henley Neck Pullover Tunic Tops Fall Fashion Outfits",
             categories=["winter fashion inspo"],
+            url="https://amzn.to/46hoU5k",
+            product_title="Hooever Women's Winter Wool Coat Casual Notch Lapel Single-Breasted Peacoat",
+            thumbnail_url="https://m.media-amazon.com/images/I/71q88UCL5UL._AC_SX569_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/45VW8Z8",
-            product_title="Tickled Teal Women’s Soft Long Sleeve Pocket Cardigan",
             categories=["winter fashion inspo"],
+            url="https://amzn.to/46afnwY",
+            product_title="Tickled Teal Women's 3/4 Sleeve Lace Trim Casual Wrap Cardigan Coverup Outerwear Sweater",
+            thumbnail_url="https://m.media-amazon.com/images/I/61hM6rF-GaL._AC_SY741_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/47Cqoth",
-            product_title="Let’s Get Deep® Date Night Dice by Relatable, Roll for 200+ Unique Date Night Ideas, Gifts, and Wedding Gifts For Couples, Includes 4 Custom Dice and Instructions, Designed For Couples Ages 18+",
-            categories=["date planning inspo"],
+            categories=["future wedding plans"],
+            url="https://amzn.to/3K0BiiC",
+            product_title="Your Perfect Day Wedding Planner Book and Organizer - Wedding Planner Book - Bridal Planning Binder with Countdown Calendar - Bride Gifts - (FLORAL)",
+            thumbnail_url="https://m.media-amazon.com/images/I/71Nk-Q4qb9L._AC_SL1500_.jpg",
         ),
         AffiliateLink(
-            url="https://amzn.to/46wCVgI",
-            product_title="Peace of Mind Planner: Important Information about My Belongings, Business Affairs, and Wishes",
-            categories=["date planning inspo"],
+            categories=["future wedding plans"],
+            url="https://amzn.to/4ntLRJG",
+            product_title="Wedding Planner Book and Organizer - Faux Leather 'Future Mrs' Wedding Planning Book and Organizer 2024-25 I Wedding Binder inc. Pen, Bookmark & Stickers & Bridal Countdown Calendar I Designed in USA",
+            thumbnail_url="https://m.media-amazon.com/images/I/91p4lA1e0HL._AC_SL1500_.jpg",
         ),
     ]
     result = service.get_bulk_create_from_affiliate_links_csv(
