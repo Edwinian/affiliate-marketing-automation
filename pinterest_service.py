@@ -14,7 +14,7 @@ from common import os, load_dotenv, requests
 
 
 class PinterestService(Channel):
-    VAGUE_KEYWORDS = ["outfit ideas"]
+    SKIP_KEYWORDS = ["outfit ideas"]
     query_keywords_map: dict[str, list[str]] = {}
 
     def __init__(
@@ -394,7 +394,7 @@ class PinterestService(Channel):
 
         # Remove vague keywords not useful for tags
         trend_count = {
-            k: v for k, v in trend_count.items() if k not in self.VAGUE_KEYWORDS
+            k: v for k, v in trend_count.items() if k not in self.SKIP_KEYWORDS
         }
 
         # Sort trends by count (descending) and then by word count (descending) for ties
@@ -641,72 +641,72 @@ class PinterestService(Channel):
 if __name__ == "__main__":
     service = PinterestService()
 
-    # result = service.get_keywords(limit=5)
-    # print(result)
-
-    links = [
-        AffiliateLink(
-            categories=["fall nails"],
-            url="https://amzn.to/46fAGNM",
-            product_title="BTArtbox Press On Nails Short - Dark Red Press on Nails, Short Oval Fake Nails with Nail Glue, Fit Perfectly & Natural Reusable Stick on Nails in 16 Sizes Soft Gel Nail Kit, Coffee Bean",
-            thumbnail_url="https://m.media-amazon.com/images/I/61xZBWKjDSL._SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["fall nails"],
-            url="https://amzn.to/4m8RBqU",
-            product_title="GLAMERMAID Cherry Red Press on Nails Medium Almond, Handmade Jelly Soft Gel Dark Red Glue on Nails Stiletto, Burgundy Emo Fake Nails Short Oval, Reusable Acrylic Stick on False Nails Kit for Women",
-            thumbnail_url="https://m.media-amazon.com/images/I/61xZBWKjDSL._SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["fall outfits"],
-            url="https://amzn.to/3K3AVnv",
-            product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
-            thumbnail_url="https://m.media-amazon.com/images/I/71l9N09tGUL._AC_SY741_.jpg",
-        ),
-        AffiliateLink(
-            categories=["fall outfits"],
-            url="https://amzn.to/41N7vjG",
-            product_title="PRETTYGARDEN Women's 2 Piece Outfits Casual Lapel Half Zip Sweatshirts And Wide Leg Pants Tracksuit Sets",
-            thumbnail_url="https://m.media-amazon.com/images/I/61mVGvGfGKL._AC_SY741_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter hair braid"],
-            url="https://amzn.to/3VvZoVf",
-            product_title="DIGUAN Messy Wide 2 Strands Synthetic Hair Braided Headband Hairpiece Women Girl Beauty accessory, 62g/2.1 oz (Dark Brown)",
-            thumbnail_url="https://m.media-amazon.com/images/I/710SdcR1JML._SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter hair braid"],
-            url="https://amzn.to/3HSqNxp",
-            product_title="Xiaofeng 3 Packs 24Inch Kanekalon Braiding Hair Extensions Ombre Jumbo Synthetic Braids Hair Purple-Lake Blue-Light Purple",
-            thumbnail_url="https://m.media-amazon.com/images/I/71ZstQ9ec-L._SL1088_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter fashion inspo"],
-            url="https://amzn.to/46hoU5k",
-            product_title="Hooever Women's Winter Wool Coat Casual Notch Lapel Single-Breasted Peacoat",
-            thumbnail_url="https://m.media-amazon.com/images/I/71q88UCL5UL._AC_SX569_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter fashion inspo"],
-            url="https://amzn.to/46afnwY",
-            product_title="Tickled Teal Women's 3/4 Sleeve Lace Trim Casual Wrap Cardigan Coverup Outerwear Sweater",
-            thumbnail_url="https://m.media-amazon.com/images/I/61hM6rF-GaL._AC_SY741_.jpg",
-        ),
-        AffiliateLink(
-            categories=["future wedding plans"],
-            url="https://amzn.to/3K0BiiC",
-            product_title="Your Perfect Day Wedding Planner Book and Organizer - Wedding Planner Book - Bridal Planning Binder with Countdown Calendar - Bride Gifts - (FLORAL)",
-            thumbnail_url="https://m.media-amazon.com/images/I/71Nk-Q4qb9L._AC_SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["future wedding plans"],
-            url="https://amzn.to/4ntLRJG",
-            product_title="Wedding Planner Book and Organizer - Faux Leather 'Future Mrs' Wedding Planning Book and Organizer 2024-25 I Wedding Binder inc. Pen, Bookmark & Stickers & Bridal Countdown Calendar I Designed in USA",
-            thumbnail_url="https://m.media-amazon.com/images/I/91p4lA1e0HL._AC_SL1500_.jpg",
-        ),
-    ]
-    result = service.get_bulk_create_from_affiliate_links_csv(
-        affiliate_links=links, skipUsedCheck=False
-    )
+    result = service.get_keywords(limit=5)
     print(result)
+
+    # links = [
+    #     AffiliateLink(
+    #         categories=["fall nails"],
+    #         url="https://amzn.to/3K2sfOa",
+    #         product_title="Beetles Gel Nail Polish Kit, 23Pcs Fall Nude Pink Brown Burgundy Red Gel Polish Set with Base Top Coat Verse of Roses Kit, Soak off Uv Gel Golden Glitter Holiday Nail for Women",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71f0QlGaPQL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["fall nails"],
+    #         url="https://amzn.to/4pk9R3r",
+    #         product_title="Curvlife Newly Upgraded Quick Drying 10g Semi Solid Nail Glue with 10ml Remover for Press On Nails Tips No Need for UV Lamp Long Lasting Fake Acrylic Nails Kit Glue Gel",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/61BR17bunQL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["fall outfits"],
+    #         url="https://amzn.to/3HSG29C",
+    #         product_title="Dokotoo Women's Oversized Denim Jacket Casual Long Sleeve Denim Shirts Distresse Jean Jacket Fall Outfits 2025",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/81y1FUqfhmL._AC_SY741_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["fall outfits"],
+    #         url="https://amzn.to/3K5Bs8t",
+    #         product_title="LILLUSORY Womens Oversized Cardigans Soft Knit Cardigan Sweater with Pockets",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/819S4GCOkiL._AC_SY741_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter hair braid"],
+    #         url="https://amzn.to/3V9x2zT",
+    #         product_title="Harewom Head Wraps for Black Women Stretch Head Scarf Long African Hair Wraps Turban Headwraps Jersey Headbands",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/61TtA89q1FS._AC_SX569_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter hair braid"],
+    #         url="https://amzn.to/4nqIjb1",
+    #         product_title="S&N Remille Wide Headbands for Women, Large Hairband, Elastic Non-Slip Headband Twist Knotted Accessories, Yoga Workout Vintage Hair 3 Pack (Colour-8)",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71i7xlw3wIL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter fashion inspo"],
+    #         url="https://amzn.to/41O9WCw",
+    #         product_title="Tickled Teal Women’s Soft Long Sleeve Pocket Cardigan",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71WG6bh8geL._AC_SY741_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter fashion inspo"],
+    #         url="https://amzn.to/3K0mkcs",
+    #         product_title="Tickled Teal Women's Long Sleeve Casual Loose Sweater Outerwear",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/81uNGQnp5RL._AC_SX679_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["future wedding plans"],
+    #         url="https://amzn.to/4635D93",
+    #         product_title="The Little Book of Wedding Checklists: All the Lists and Tips You Need to Plan the Big Day",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/81Sa-3NitAL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["future wedding plans"],
+    #         url="https://amzn.to/48crcFm",
+    #         product_title="DELUXY The Ultimate Wedding Planner Book & Organizer For The Bride 2025 - Unique Bridal Shower Gift, Engagement Gifts, Wedding Gifts Binder Agenda, Knot Bridal Wedding Planning Book & Organizer Notebook With Checklists",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/81KDN5ijNfL._AC_SL1500_.jpg",
+    #     ),
+    # ]
+    # result = service.get_bulk_create_from_affiliate_links_csv(
+    #     affiliate_links=links, skipUsedCheck=False
+    # )
+    # print(result)

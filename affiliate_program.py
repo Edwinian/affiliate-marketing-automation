@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from all_types import AffiliateLink, UsedLink
+from aws_service import AWSService
 from enums import CustomLinksKey
 from llm_service import LlmService
 from logger_service import LoggerService
@@ -26,6 +27,7 @@ class AffiliateProgram(ABC):
         self.logger = LoggerService(name=log_name)
         self.llm_service = LlmService()
         self.media_service = MediaService()
+        self.aws_service = AWSService()
         self.pinterest_service = PinterestService()
 
         if not self.WORDPRESS_CREDENTIALS:
@@ -63,10 +65,6 @@ class AffiliateProgram(ABC):
             return affiliate_links
 
         affiliate_links = self.get_program_links(keywords=keywords)
-        affiliate_links = self.media_service.get_unused_affiliate_links(
-            affiliate_links=affiliate_links
-        )
-
         return affiliate_links
 
     def get_keywords_from_model(self, limit: int = 2) -> list[str]:
