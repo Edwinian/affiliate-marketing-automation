@@ -186,7 +186,8 @@ class AWSService:
 
     def add_used_affiliate_links(self, links: list[str]) -> list[str]:
         try:
-            content = json.dumps(links)
+            existing_links = self.get_used_affiliate_links()
+            content = json.dumps(existing_links + links)
             success = self.upload_string_to_s3(
                 content=content,
                 key=self.USED_LINK_KEY,
