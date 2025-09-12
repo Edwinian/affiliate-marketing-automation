@@ -9,32 +9,18 @@ from common import os, load_dotenv
 
 class AmazonService(AffiliateProgram):
     CUSTOM_LINKS_KEY = CustomLinksKey.AMAZON
-    IS_PIN = True
 
     def __init__(self, niche: str = "beauty"):
-        super().__init__()
         self.amazon = AmazonApi(
             key=os.getenv("AMAZON_ACCESS_KEY"),
             secret=os.getenv("AMAZON_SECRET"),
             tag=os.getenv("AMAZON_ASSOCIATE_TAG"),
             country=os.getenv("AMAZON_COUNTRY"),
         )
-        wordpress_credentials_suffix = niche.upper().replace(" ", "_")
-        self.WORDPRESS_CREDENTIALS = {
-            "API_URL": os.getenv(
-                f"WORDPRESS_API_URL_AMAZON_{wordpress_credentials_suffix}"
-            ),
-            "FRONTEND_URL": os.getenv(
-                f"WORDPRESS_FRONTEND_URL_AMAZON_{wordpress_credentials_suffix}"
-            ),
-            "ACCESS_TOKEN": os.getenv(
-                f"WORDPRESS_ACCESS_TOKEN_AMAZON_{wordpress_credentials_suffix}"
-            ),
-        }
+        self.WORDPRESS_CREDENTIALS_SUFFIX = f"AMAZON_{niche.upper().replace(" ", "_")}"
+        super().__init__()
 
-    def get_program_links(
-        self, keywords: list[str], link_count_per_keyword=1
-    ) -> list[AffiliateLink]:
+    def get_affiliate_links(self, link_count_per_keyword=1) -> list[AffiliateLink]:
         """
         Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews for each keyword.
         Returns an AffiliateLink dataclass with the URL, review count, and product category.
@@ -42,6 +28,7 @@ class AmazonService(AffiliateProgram):
         try:
             affiliate_links = []
             used_links = self.aws_service.get_used_affiliate_links()
+            keywords = self.pinterest_service.get_keywords()
 
             # Get the best affiliate link for each keyword based on the number of reviews
             for keyword_idx, keyword in enumerate(keywords):
