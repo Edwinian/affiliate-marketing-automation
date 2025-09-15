@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from all_types import AffiliateLink, UsedLink
 from aws_service import AWSService
-from enums import CustomLinksKey
+from enums import ProgramKey
 from llm_service import LlmService
 from logger_service import LoggerService
 from media_service import MediaService
@@ -17,9 +17,8 @@ class AffiliateProgram(ABC):
     Base class for affiliate program services that need to execute cron jobs.
     """
 
-    CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
+    PROGRAM_KEY = None
     IS_FIXED_LINK: bool = False
-    WORDPRESS_CREDENTIALS_SUFFIX = None
 
     def __init__(self):
         self.program_name = self.__class__.__name__
@@ -31,18 +30,17 @@ class AffiliateProgram(ABC):
         self.pinterest_service = PinterestService()
 
         self.WORDPRESS_CREDENTIALS = {
-            "API_URL": os.getenv(
-                f"WORDPRESS_API_URL_{self.WORDPRESS_CREDENTIALS_SUFFIX}"
-            ),
-            "FRONTEND_URL": os.getenv(
-                f"WORDPRESS_FRONTEND_URL_{self.WORDPRESS_CREDENTIALS_SUFFIX}"
-            ),
-            "ACCESS_TOKEN": os.getenv(
-                f"WORDPRESS_ACCESS_TOKEN_{self.WORDPRESS_CREDENTIALS_SUFFIX}"
-            ),
+            "API_URL": os.getenv(f"WORDPRESS_API_URL_{self.PROGRAM_KEY}"),
+            "FRONTEND_URL": os.getenv(f"WORDPRESS_FRONTEND_URL_{self.PROGRAM_KEY}"),
+            "ACCESS_TOKEN": os.getenv(f"WORDPRESS_ACCESS_TOKEN_{self.PROGRAM_KEY}"),
         }
-        if not self.WORDPRESS_CREDENTIALS:
-            return self.logger.error("WORDPRESS_CREDENTIALS not set.")
+
+        for key, value in self.WORDPRESS_CREDENTIALS.items():
+            if value is None:
+                self.logger.error(
+                    f"Missing environment variable for {key}: WORDPRESS_{key}_{self.PROGRAM_KEY}"
+                )
+                return
 
         self.wordpress = WordpressService(credentials=self.WORDPRESS_CREDENTIALS)
 

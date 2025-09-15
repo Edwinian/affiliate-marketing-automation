@@ -1,17 +1,14 @@
-from amazon_paapi import models, AmazonApi
-
 from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
-
-from common import os, load_dotenv
+from enums import ProgramKey
 
 
 class VPNService(AffiliateProgram):
     IS_FIXED_LINK = True
-    WORDPRESS_CREDENTIALS_SUFFIX = "VPN"
+    PROGRAM_KEY = ProgramKey.VPN
 
     def get_affiliate_links(self) -> list[AffiliateLink]:
-        categories = ["vpn"]
+        categories = ["VPN"]
 
         return [
             AffiliateLink(

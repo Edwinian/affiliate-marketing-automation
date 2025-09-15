@@ -25,9 +25,9 @@ class StrEnum(str, Enum):
             raise ValueError(f"Invalid value {v} for {cls.__name__}")
 
 
-class CustomLinksKey(StrEnum):
-    DEFAULT = "default_affiliate_links"
-    AMAZON = "amazon_affiliate_links"
+class ProgramKey(StrEnum):
+    AMAZON = "AMAZON"
+    VPN = "VPN"
 
 
 class LlmErrorPrompt(StrEnum):

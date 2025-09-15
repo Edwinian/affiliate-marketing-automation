@@ -1,6 +1,6 @@
 import html
 import requests
-from typing import List
+from typing import List, Optional
 
 from all_types import (
     AffiliateLink,
@@ -33,37 +33,13 @@ class WordpressService(Channel):
         # WP may replace spaces with non-breaking spaces
         return html.unescape(title).replace("\xa0", " ")
 
-    def get_menus(self, params: dict[str, str] = None) -> List[dict]:
+    def get_menus(self, params: dict[str, str] = {}) -> List[dict]:
         """
         Retrieves all navigation menus from WordPress with pagination.
         """
         try:
-            menus = []
-            page = 1
-            per_page = 100
-            params = params or {}
-
-            while True:
-                self.logger.info(f"Fetching menus, page {page}...")
-                params.update({"page": str(page), "per_page": str(per_page)})
-                url = f"{self.api_url}/menus"
-                response = requests.get(url, headers=self.headers, params=params)
-                response.raise_for_status()
-                page_menus = response.json()
-
-                if not page_menus:
-                    break
-
-                menus.extend(page_menus)
-
-                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
-                if page >= total_pages:
-                    break
-                page += 1
-
-            self.logger.info(f"Retrieved {len(menus)} menus")
+            menus = self._get_data(resource="menus", more_params=params)
             return menus
-
         except requests.RequestException as e:
             self.logger.error(
                 f"Error retrieving menus: {e}, "
@@ -177,38 +153,9 @@ class WordpressService(Channel):
         Uses the /wp/v2/menu-items endpoint with pagination to fetch all items.
         """
         try:
-            menu_items = []
-            page = 1
-            per_page = 100
-
-            while True:
-                self.logger.info(
-                    f"Fetching page {page} of {per_page} menu items for menu ID {menu_id}..."
-                )
-                url = f"{self.api_url}/menu-items"
-                params = {"menus": menu_id, "page": page, "per_page": per_page}
-                response = requests.get(url, headers=self.headers, params=params)
-                response.raise_for_status()
-                page_items = response.json()
-
-                if not page_items:
-                    break
-
-                for item in page_items:
-                    title = item.get("title", {}).get("rendered", "")
-                    if title:
-                        menu_items.append(self.sanitize(title))
-
-                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
-                if page >= total_pages:
-                    break
-                page += 1
-
-            self.logger.info(
-                f"Retrieved {len(menu_items)} menu items for menu ID {menu_id}"
-            )
+            params = {"menus": menu_id}
+            menu_items = self._get_data(resource="menu-items", more_params=params)
             return menu_items
-
         except requests.RequestException as e:
             self.logger.error(
                 f"Error retrieving menu items for menu ID {menu_id}: {e}, "
@@ -340,23 +287,50 @@ class WordpressService(Channel):
             self.logger.error(f"Error parsing response for category '{name}': {e}")
             return 0
 
+    def _get_data(
+        self,
+        resource: str,
+        page: int = 1,
+        all_responses: List[dict] = [],
+        more_params: Optional[dict] = {},
+    ) -> List[dict]:
+        per_page = 100
+        params = {"page": page, "per_page": per_page, **more_params}
+
+        url = f"{self.api_url}/{resource}"
+
+        self.logger.info(f"Fetching {resource}, page {page}...")
+        response = requests.get(url, headers=self.headers, params=params)
+        response.raise_for_status()
+        responses = response.json() if response else []
+
+        all_responses += responses
+
+        # Fetch more when item count >= page size
+        if len(responses) >= per_page:
+            return self._get_data(
+                resource=resource,
+                page=page + 1,
+                all_responses=all_responses,
+                more_params=more_params,
+            )
+
+        self.logger.info(f"Retrieved {len(all_responses)} {resource} items")
+        return all_responses
+
     def get_categories(self) -> List[WordpressCategory]:
         if self.CATEGORIES:
-            self.CATEGORIES
+            return self.CATEGORIES
 
-        url = f"{self.api_url}/categories"
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        categories = response.json() if response else []
+        data = self._get_data(resource="categories")
         self.CATEGORIES = [
             WordpressCategory(
                 id=cat.get("id", 0),
                 name=self.sanitize(cat.get("name", "")),
                 slug=cat.get("slug", ""),
             )
-            for cat in categories
+            for cat in data
         ]
-        self.logger.info(f"Retrieved {len(self.CATEGORIES)} categories")
         return self.CATEGORIES
 
     def get_category_ids(self, query_names: List[str]) -> List[int]:
@@ -390,55 +364,39 @@ class WordpressService(Channel):
 
         try:
             posts = []
-            page = 1
-            per_page = 100
+            params = {
+                "_embed": "wp:term",
+            }
+            page_posts = self._get_data(resource="posts", more_params=params)
 
-            while True:
-                self.logger.info(f"Fetching page {page} of {per_page} posts...")
-                url = f"{self.api_url}/posts"
-                params = {
-                    "page": page,
-                    "per_page": per_page,
-                    "_embed": "wp:term",
-                }
-                response = requests.get(url, headers=self.headers, params=params)
-                response.raise_for_status()
-                page_posts = response.json()
+            if not page_posts:
+                return []
 
-                if not page_posts:
-                    break
+            for post in page_posts:
+                categories = []
 
-                for post in page_posts:
-                    categories = []
-                    if "_embedded" in post and "wp:term" in post["_embedded"]:
-                        for term_group in post["_embedded"]["wp:term"]:
-                            for term in term_group:
-                                if term.get("taxonomy") == "category":
-                                    categories.append(
-                                        WordpressCategory(
-                                            id=term.get("id", 0),
-                                            name=self.sanitize(term.get("name", "")),
-                                            slug=term.get("slug", ""),
-                                        )
+                if "_embedded" in post and "wp:term" in post["_embedded"]:
+                    for term_group in post["_embedded"]["wp:term"]:
+                        for term in term_group:
+                            if term.get("taxonomy") == "category":
+                                categories.append(
+                                    WordpressCategory(
+                                        id=term.get("id", 0),
+                                        name=self.sanitize(term.get("name", "")),
+                                        slug=term.get("slug", ""),
                                     )
+                                )
 
-                    post_data = WordpressPost(
-                        id=post.get("id", 0),
-                        title=self.sanitize(post.get("title", {}).get("rendered", "")),
-                        content=self.sanitize(
-                            post.get("content", {}).get("rendered", "")
-                        ),
-                        link=post.get("link", ""),
-                        date=post.get("date", ""),
-                        status=post.get("status", ""),
-                        categories=categories,
-                    )
-                    posts.append(post_data)
-
-                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
-                if page >= total_pages:
-                    break
-                page += 1
+                post_data = WordpressPost(
+                    id=post.get("id", 0),
+                    title=self.sanitize(post.get("title", {}).get("rendered", "")),
+                    content=self.sanitize(post.get("content", {}).get("rendered", "")),
+                    link=post.get("link", ""),
+                    date=post.get("date", ""),
+                    status=post.get("status", ""),
+                    categories=categories,
+                )
+                posts.append(post_data)
 
             self.POSTS = posts
             return posts
@@ -592,32 +550,12 @@ class WordpressService(Channel):
             return self.TAGS
 
         try:
-            tags = []
-            page = 1
-            per_page = 100
-
-            while True:
-                self.logger.info(f"Fetching page {page} of {per_page} tags...")
-                url = f"{self.api_url}/tags"
-                params = {"page": page, "per_page": per_page, "search": search}
-                response = requests.get(url, headers=self.headers, params=params)
-                response.raise_for_status()
-                page_tags = response.json()
-
-                if not page_tags:
-                    break
-
-                for tag in page_tags:
-                    tag_name = tag.get("name", "")
-                    tag_id = tag.get("id", 0)
-                    if tag_name and tag_id:
-                        tags.append(WordpressTag(id=tag_id, name=tag_name))
-
-                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
-                if page >= total_pages:
-                    break
-                page += 1
-
+            params = {"search": search}
+            page_tags = self._get_data(resource="tags", more_params=params)
+            tags = [
+                WordpressTag(id=tag.get("id", 0), name=tag.get("name", ""))
+                for tag in page_tags
+            ]
             self.TAGS = tags
             return tags
 
@@ -769,8 +707,13 @@ class WordpressService(Channel):
 
 
 if __name__ == "__main__":
-    service = WordpressService()
-    new_menu_ids = service.update_menu_items()
+    credentials = {
+        "API_URL": "https://public-api.wordpress.com/wp/v2/sites/edwinchan6.wordpress.com",
+        "ACCESS_TOKEN": "61&NhCPk1&^dKUCiX8Fd4$HAXs^GTd4I$!u0qU8QG8fC4S5Fx$ElpFH8Z0nKmtoO",
+        "FRONTEND_URL": "https://edwinchan6.wordpress.com",
+    }
+    service = WordpressService(credentials=credentials)
+    new_menu_ids = service.get_categories()
     print(f"Created menu items: {new_menu_ids}")
 
     # html_content = service.get_navbar_html()

@@ -2,43 +2,52 @@ import time
 from typing import Optional
 from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
-from amazon_service import AmazonService
-from enums import CustomLinksKey
+from enums import ProgramKey
 from logger_service import LoggerService
+from vpn_service import VPNService
 
 
 def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None):
     logger = LoggerService(name="execute_crons")
-    AMAZON_NICHES = ["beauty"]
-    AMAZON_PROGRAMS = [AmazonService(niche=niche) for niche in AMAZON_NICHES]
-    affiliate_programs: list[AffiliateProgram] = AMAZON_PROGRAMS
+    affiliate_programs: list[AffiliateProgram] = [VPNService()]
 
-    for program in affiliate_programs:
-        name = program.__class__.__name__
-        logger.set_prefix(name)
+    # Set the duration to 10 minutes (600 seconds)p
+    total_duration = 5
+    start_time = time.time()
 
-        try:
-            program_start_time = time.time()
-            custom_links = (
-                custom_links_map.get(program.CUSTOM_LINKS_KEY, [])
-                if custom_links_map
-                else []
-            )
+    while (time.time() - start_time) < total_duration:
+        for program in affiliate_programs:
+            name = program.__class__.__name__
+            logger.set_prefix(name)
 
-            # Execute the program's cron job
-            program.execute_cron(custom_links=custom_links)
+            try:
+                program_start_time = time.time()
+                custom_links = (
+                    custom_links_map.get(program.PROGRAM_KEY, [])
+                    if custom_links_map
+                    else []
+                )
 
-            program_end_time = time.time()
-            execution_time = program_end_time - program_start_time
-            logger.info(f"Finished execution of {name}: {execution_time:.2f} seconds")
-        except Exception as e:
-            logger.error(f"Error executing cron for {name}: {e}")
+                # Execute the program's cron job
+                program.execute_cron(custom_links=custom_links)
+
+                program_end_time = time.time()
+                execution_time = program_end_time - program_start_time
+                logger.info(
+                    f"Finished execution of {name}: {execution_time:.2f} seconds"
+                )
+            except Exception as e:
+                logger.error(f"Error executing cron for {name}: {e}")
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    logger.info(f"Finished execution of: {execution_time:.2f} seconds")
 
 
 # Local test
 if __name__ == "__main__":
     custom_links_map: dict[str, list[AffiliateLink]] = {
-        CustomLinksKey.AMAZON: [
+        f"{ProgramKey.AMAZON}_BEAUTY": [
             # AffiliateLink(
             #     url="https://amzn.to/46d5C1d",
             #     product_title="Kasa Smart Plug HS103P4, Smart Home Wi-Fi Outlet Works with Alexa, Echo, Google Home & IFTTT, No Hub Required, Remote Control, 15 Amp, UL Certified, 4-Pack, White",
