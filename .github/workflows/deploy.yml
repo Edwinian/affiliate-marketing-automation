@@ -32,13 +32,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -t package/
-          cp lambda_function.py package/
-
+          # Copy all Python files and relevant directories to package/
+          cp *.py package/
       - name: Create Lambda deployment package
         run: |
           cd package
           zip -r ../lambda_function.zip .
-      # Added permissions to the job to allow GitHub Actions to generate an OIDC token (id-token: write) and read repository contents (contents: read)
+          cd ..
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
