@@ -5,7 +5,6 @@ import uuid
 import requests
 from typing import Dict, List, Any, Optional
 
-from sklearn.base import defaultdict
 from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink, WordpressPost
 from channel import Channel
 from enums import PinterestTrendType
@@ -47,7 +46,7 @@ class PinterestService(Channel):
         self,
         pin_sources: List[AffiliateLink | WordpressPost],
     ) -> dict[str, int]:
-        count_dict = defaultdict(int)
+        count_dict = {}
 
         for source in pin_sources:
             for category in source.categories:  # Check every category in the list
