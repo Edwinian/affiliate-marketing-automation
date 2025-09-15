@@ -16,4 +16,4 @@ class VPNService(AffiliateProgram):
                 product_title="NordVPN",
                 categories=categories,
             )
-        ]
+        ][: self.LINK_LIMIT]

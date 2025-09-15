@@ -11,7 +11,7 @@ def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = N
     logger = LoggerService(name="execute_crons")
     affiliate_programs: list[AffiliateProgram] = [VPNService()]
 
-    # Set the duration to 10 minutes (600 seconds)p
+    # Set the duration to 10 minutes (600 seconds)
     total_duration = 5
     start_time = time.time()
 

@@ -19,18 +19,22 @@ class AmazonService(AffiliateProgram):
         self.PROGRAM_KEY = f"{ProgramKey.AMAZON}_{self.niche.upper().replace(' ', '_')}"
         super().__init__()
 
-    def get_affiliate_links(self, limit=1) -> list[AffiliateLink]:
+    def get_affiliate_links(self) -> list[AffiliateLink]:
         """
-        Fetch affiliate links from Amazon PA API with pagination, returning the link with the most reviews for each keyword.
-        Returns an AffiliateLink dataclass with the URL, review count, and product category.
+        Fetch affiliate links from Amazon PA API with pagination, returning the link with the highest review count for each keyword.
+        Returns a list of AffiliateLink dataclasses with the URL, review count, and product category.
         """
         try:
             affiliate_links = []
             used_links = self.aws_service.get_used_affiliate_links()
             item_page = 0
+            max_pages = 10  # Limit to 10 pages to avoid excessive API calls
 
-            while len(affiliate_links) <= limit and item_page < 10:
+            while len(affiliate_links) < self.LINK_LIMIT and item_page < max_pages:
                 item_page += 1
+                self.logger.info(
+                    f"Fetching Amazon items for niche '{self.niche}', page {item_page}..."
+                )
 
                 try:
                     response = self.amazon.search_items(
@@ -43,62 +47,71 @@ class AmazonService(AffiliateProgram):
                             "Offers.Listings.Price",
                             "ItemInfo.CustomerReviews",
                             "ItemInfo.Classifications",
-                            "Images.Primary.Large",  # Thumbnail URL
+                            "Images.Primary.Large",
                         ],
                         sort_by=models.SortBy.FEATURED,
                     )
 
-                    if response.items:
-                        # Initialize variables to track the link with the most reviews
-                        best_link = None
-                        max_reviews = 0
+                    if not response.items:
+                        self.logger.debug(f"No items found on page {item_page}")
+                        return []
 
-                        for item in response.items:
-                            affiliate_link_url = item.detail_page_url or ""
-                            product_title = item.item_info.title.display_value
+                    # Sort items by customer_reviews.count (None treated as 0) in descending order
+                    sorted_items = sorted(
+                        response.items,
+                        key=lambda item: item.customer_reviews.count or 0,
+                        reverse=True,
+                    )
 
-                            if (
-                                not affiliate_link_url
-                                or "amazon" in product_title.lower()
-                                or affiliate_link_url in used_links
-                            ):
-                                continue
+                    # Process the top item (highest review count)
+                    for item in sorted_items:
+                        if len(affiliate_links) >= self.LINK_LIMIT:
+                            break
 
-                            num_reviews = item.customer_reviews.count or 0
+                        affiliate_link_url = item.detail_page_url or ""
+                        product_title = getattr(
+                            item.item_info.title, "display_value", ""
+                        )
 
-                            # Update best link if this item has more reviews
-                            if num_reviews > max_reviews:
-                                max_reviews = num_reviews
-                                product_category = (
-                                    item.item_info.classifications.product_group.display_value
-                                    if item.item_info.classifications
-                                    else "Others"
-                                )
-                                thumbnail_url = (
-                                    item.images.primary.large.url
-                                    if item.images
-                                    and item.images.primary
-                                    and item.images.primary.large
-                                    else None
-                                )
-                                best_link = AffiliateLink(
-                                    url=affiliate_link_url,
-                                    product_title=product_title,
-                                    categories=[product_category],
-                                    thumbnail_url=thumbnail_url,
-                                )
+                        # Skip invalid or used links
+                        if (
+                            not affiliate_link_url
+                            or "amazon" in product_title.lower()
+                            or affiliate_link_url in used_links
+                        ):
+                            continue
 
-                                max_reviews = num_reviews
-
-                        affiliate_links.append(best_link)
+                        # Create AffiliateLink for the first valid item
+                        product_category = (
+                            item.item_info.classifications.product_group.display_value
+                            if hasattr(item.item_info, "classifications")
+                            else "Others"
+                        )
+                        thumbnail_url = (
+                            item.images.primary.large.url
+                            if hasattr(item, "images")
+                            and hasattr(item.images, "primary")
+                            and hasattr(item.images.primary, "large")
+                            else None
+                        )
+                        affiliate_link = AffiliateLink(
+                            url=affiliate_link_url,
+                            product_title=product_title,
+                            categories=[product_category],
+                            thumbnail_url=thumbnail_url,
+                        )
+                        affiliate_links.append(affiliate_link)
                 except Exception as e:
-                    self.logger.error(f"Error fetching items from Amazon: {e}")
+                    self.logger.error(
+                        f"Error fetching items from Amazon on page {item_page}: {e}"
+                    )
                     continue
 
+            self.logger.info(
+                f"Retrieved {len(affiliate_links)} affiliate links for niche '{self.niche}'"
+            )
             return affiliate_links
 
         except Exception as e:
-            self.logger.error(f"Error fetching affiliate link: {e}")
-
-        # Return default AffiliateLink if no valid link is found or an error occurs
-        return AffiliateLink(url="", categories=["Unknown"])
+            self.logger.error(f"Error fetching affiliate links: {e}")
+        return []  # Return empty list on failure instead of AffiliateLink

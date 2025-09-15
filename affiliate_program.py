@@ -19,6 +19,7 @@ class AffiliateProgram(ABC):
 
     PROGRAM_KEY = None
     IS_FIXED_LINK: bool = False
+    LINK_LIMIT = 1
 
     def __init__(self):
         self.program_name = self.__class__.__name__
