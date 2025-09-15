@@ -11,7 +11,7 @@ def lambda_handler(event, context):
     start_time = time.time()
     total_execution_time = 0
 
-    while total_execution_time < target_duration:
+    while total_execution_time < int(target_duration):
         execute_crons()
         total_execution_time = time.time() - start_time
 
