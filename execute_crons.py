@@ -69,8 +69,7 @@ if __name__ == "__main__":
     execute_crons(custom_links_map=custom_links_map)
 
     # # Get CSV files for uploading pins
-    # affiliate_programs: list[AffiliateProgram] = [AmazonService()]
-    # pin_programs = [program for program in affiliate_programs if program.IS_PIN]
+    # pin_programs = [AmazonService()]
     # total_limit = 30
 
     # while total_limit > 0 and len(pin_programs) > 0:

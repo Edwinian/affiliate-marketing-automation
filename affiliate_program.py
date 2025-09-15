@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from common import os, load_dotenv
 from typing import List, Optional
 
 from all_types import AffiliateLink, UsedLink
@@ -17,9 +18,8 @@ class AffiliateProgram(ABC):
     """
 
     CUSTOM_LINKS_KEY = CustomLinksKey.DEFAULT
-    IS_PIN = False
-    FIXED_AFFILIATE_LINKS: List[AffiliateLink] = []
-    WORDPRESS_CREDENTIALS: dict[str, str] = None
+    IS_FIXED_LINK: bool = False
+    WORDPRESS_CREDENTIALS_SUFFIX = None
 
     def __init__(self):
         self.program_name = self.__class__.__name__
@@ -30,15 +30,24 @@ class AffiliateProgram(ABC):
         self.aws_service = AWSService()
         self.pinterest_service = PinterestService()
 
+        self.WORDPRESS_CREDENTIALS = {
+            "API_URL": os.getenv(
+                f"WORDPRESS_API_URL_{self.WORDPRESS_CREDENTIALS_SUFFIX}"
+            ),
+            "FRONTEND_URL": os.getenv(
+                f"WORDPRESS_FRONTEND_URL_{self.WORDPRESS_CREDENTIALS_SUFFIX}"
+            ),
+            "ACCESS_TOKEN": os.getenv(
+                f"WORDPRESS_ACCESS_TOKEN_{self.WORDPRESS_CREDENTIALS_SUFFIX}"
+            ),
+        }
         if not self.WORDPRESS_CREDENTIALS:
             return self.logger.error("WORDPRESS_CREDENTIALS not set.")
 
         self.wordpress = WordpressService(credentials=self.WORDPRESS_CREDENTIALS)
 
     @abstractmethod
-    def get_program_links(
-        self, keywords: Optional[List[str]] = []
-    ) -> list[AffiliateLink]:
+    def get_affiliate_links(self) -> list[AffiliateLink]:
         """
         Abstract method to be implemented by subclasses for getting affiliate links from program.
         """
@@ -49,23 +58,6 @@ class AffiliateProgram(ABC):
         return self.pinterest_service.get_bulk_create_from_posts_csv(
             posts=posts, limit=limit
         )
-
-    def get_affiliate_links(
-        self,
-    ) -> list[AffiliateLink]:
-        affiliate_links = []
-        keywords = (
-            self.pinterest_service.get_keywords()
-            if self.IS_PIN
-            else self.get_keywords_from_model()
-        )
-
-        if not keywords:
-            self.logger.info("No keywords found.")
-            return affiliate_links
-
-        affiliate_links = self.get_program_links(keywords=keywords)
-        return affiliate_links
 
     def get_keywords_from_model(self, limit: int = 2) -> list[str]:
         keywords = self.llm_service.generate_text(
@@ -121,7 +113,6 @@ class AffiliateProgram(ABC):
     def execute_cron(self, custom_links: list[AffiliateLink] = []) -> None:
         affiliate_links = (
             self.media_service.get_unused_affiliate_links(affiliate_links=custom_links)
-            or self.FIXED_AFFILIATE_LINKS
             or self.get_affiliate_links()
         )
 
@@ -130,5 +121,5 @@ class AffiliateProgram(ABC):
 
         create_links = self.create_content_for_links(affiliate_links=affiliate_links)
 
-        if not self.FIXED_AFFILIATE_LINKS:
+        if not self.IS_FIXED_LINK:
             self.media_service.add_used_affiliate_links(used_links=create_links)
