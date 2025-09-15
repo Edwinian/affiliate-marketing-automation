@@ -363,6 +363,56 @@ class PinterestService(Channel):
         """
         trend_count: Dict[str, int] = {}
 
+        def get_unique_keywords(
+            sorted_trends: list[tuple[str, int]],
+        ) -> list[tuple[str, int]]:
+            """
+            Process a list of keyword tuples:
+            - Remove common plural endings ('s' or 'es') from each word in the keyword.
+            - Filter out keywords that are substrings of other keywords, keeping longer terms.
+            """
+            if not sorted_trends:
+                return []
+
+            # Step 1: Remove plural endings from each keyword
+            processed = []
+            for keyword, count in sorted_trends:
+                words = keyword.split()
+                singular_words = []
+                for word in words:
+                    if word.endswith("es") and len(word) > 2 and word[-3] != "i":
+                        singular = word[:-2]  # e.g., designs -> design
+                        singular_words.append(singular)
+                    elif word.endswith("s") and len(word) > 1:
+                        singular = word[:-1]  # e.g., nails -> nail, outfits -> outfit
+                        singular_words.append(singular)
+                    else:
+                        singular_words.append(word)  # e.g., hair, braid
+                processed.append((" ".join(singular_words), count))
+
+            # Step 2: Filter out keywords that are substrings of others
+            unique = []
+            # Sort by length (descending) and count (descending) to prioritize longer terms and higher counts
+            processed = sorted(processed, key=lambda x: (-len(x[0].split()), -x[1]))
+            for kw, count in processed:
+                # Skip duplicates (based on keyword only)
+                if any(kw == existing[0] for existing in unique):
+                    continue
+                # Skip if this keyword is a substring of any existing unique keyword
+                if any(kw in existing[0] and kw != existing[0] for existing in unique):
+                    continue
+                # Remove existing unique keywords that are substrings of this one
+                unique = [
+                    existing
+                    for existing in unique
+                    if existing[0] not in kw or existing[0] == kw
+                ]
+                unique.append((kw, count))
+
+            # Sort by original count (descending) and word count (descending) to match input sorting
+            unique = sorted(unique, key=lambda x: (-x[1], -len(x[0].split())))
+            return unique
+
         def _get_trends(trend_type: PinterestTrendType):
             try:
                 # Build the base URL
@@ -405,6 +455,7 @@ class PinterestService(Channel):
                 -len(x[0].split()),
             ),
         )
+        sorted_trends = get_unique_keywords(sorted_trends)
 
         # Return the top 'limit' trend names
         return [trend for trend, _ in sorted_trends[:limit]]
@@ -641,72 +692,72 @@ class PinterestService(Channel):
 if __name__ == "__main__":
     service = PinterestService()
 
-    result = service.get_keywords(limit=5)
-    print(result)
-
-    # links = [
-    #     AffiliateLink(
-    #         categories=["fall nails"],
-    #         url="https://amzn.to/3K2sfOa",
-    #         product_title="Beetles Gel Nail Polish Kit, 23Pcs Fall Nude Pink Brown Burgundy Red Gel Polish Set with Base Top Coat Verse of Roses Kit, Soak off Uv Gel Golden Glitter Holiday Nail for Women",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/71f0QlGaPQL._SL1500_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["fall nails"],
-    #         url="https://amzn.to/4pk9R3r",
-    #         product_title="Curvlife Newly Upgraded Quick Drying 10g Semi Solid Nail Glue with 10ml Remover for Press On Nails Tips No Need for UV Lamp Long Lasting Fake Acrylic Nails Kit Glue Gel",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/61BR17bunQL._SL1500_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["fall outfits"],
-    #         url="https://amzn.to/3HSG29C",
-    #         product_title="Dokotoo Women's Oversized Denim Jacket Casual Long Sleeve Denim Shirts Distresse Jean Jacket Fall Outfits 2025",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/81y1FUqfhmL._AC_SY741_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["fall outfits"],
-    #         url="https://amzn.to/3K5Bs8t",
-    #         product_title="LILLUSORY Womens Oversized Cardigans Soft Knit Cardigan Sweater with Pockets",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/819S4GCOkiL._AC_SY741_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["winter hair braid"],
-    #         url="https://amzn.to/3V9x2zT",
-    #         product_title="Harewom Head Wraps for Black Women Stretch Head Scarf Long African Hair Wraps Turban Headwraps Jersey Headbands",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/61TtA89q1FS._AC_SX569_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["winter hair braid"],
-    #         url="https://amzn.to/4nqIjb1",
-    #         product_title="S&N Remille Wide Headbands for Women, Large Hairband, Elastic Non-Slip Headband Twist Knotted Accessories, Yoga Workout Vintage Hair 3 Pack (Colour-8)",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/71i7xlw3wIL._SL1500_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["winter fashion inspo"],
-    #         url="https://amzn.to/41O9WCw",
-    #         product_title="Tickled Teal Women’s Soft Long Sleeve Pocket Cardigan",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/71WG6bh8geL._AC_SY741_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["winter fashion inspo"],
-    #         url="https://amzn.to/3K0mkcs",
-    #         product_title="Tickled Teal Women's Long Sleeve Casual Loose Sweater Outerwear",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/81uNGQnp5RL._AC_SX679_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["future wedding plans"],
-    #         url="https://amzn.to/4635D93",
-    #         product_title="The Little Book of Wedding Checklists: All the Lists and Tips You Need to Plan the Big Day",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/81Sa-3NitAL._SL1500_.jpg",
-    #     ),
-    #     AffiliateLink(
-    #         categories=["future wedding plans"],
-    #         url="https://amzn.to/48crcFm",
-    #         product_title="DELUXY The Ultimate Wedding Planner Book & Organizer For The Bride 2025 - Unique Bridal Shower Gift, Engagement Gifts, Wedding Gifts Binder Agenda, Knot Bridal Wedding Planning Book & Organizer Notebook With Checklists",
-    #         thumbnail_url="https://m.media-amazon.com/images/I/81KDN5ijNfL._AC_SL1500_.jpg",
-    #     ),
-    # ]
-    # result = service.get_bulk_create_from_affiliate_links_csv(
-    #     affiliate_links=links, skipUsedCheck=False
-    # )
+    # result = service.get_keywords(limit=5)
     # print(result)
+
+    links = [
+        AffiliateLink(
+            categories=["fall nails"],
+            url="https://amzn.to/3KnWaAs",
+            product_title="KISS imPRESS Press On Nails Color FX Hidden Gem No Glue",
+            thumbnail_url="https://m.media-amazon.com/images/I/71e6Fghq8KL._SL1500_.jpg",
+        ),
+        AffiliateLink(
+            categories=["fall nails"],
+            url="https://amzn.to/4gof725",
+            product_title="GLAMERMAID Cherry Red Press on Nails Medium Almond, Handmade Jelly Soft Gel Dark Red Glue on Nails Stiletto, Burgundy Emo Fake Nails Short Oval, Reusable Acrylic Stick on False Nails Kit for Women",
+            thumbnail_url="https://m.media-amazon.com/images/I/61xZBWKjDSL._SL1500_.jpg",
+        ),
+        AffiliateLink(
+            categories=["fall outfits"],
+            url="https://amzn.to/48dTrUb",
+            product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
+            thumbnail_url="https://m.media-amazon.com/images/I/71l9N09tGUL._AC_SY741_.jpg",
+        ),
+        AffiliateLink(
+            categories=["fall outfits"],
+            url="https://amzn.to/4gmeHsW",
+            product_title="Dokotoo Women's Oversized Denim Jacket Casual Long Sleeve Denim Shirts Distresse Jean Jacket Fall Outfits 2025",
+            thumbnail_url="https://m.media-amazon.com/images/I/81y1FUqfhmL._AC_SY741_.jpg",
+        ),
+        AffiliateLink(
+            categories=["winter hair braid"],
+            url="https://amzn.to/41W00qB",
+            product_title="K-Elewon 3 Pack Women Wide Elastic Head Wrap Headband Sports yoga Hair Band",
+            thumbnail_url="https://m.media-amazon.com/images/I/71cgrDfuutL._AC_SX679_.jpg",
+        ),
+        AffiliateLink(
+            categories=["winter hair braid"],
+            url="https://amzn.to/4meIXqU",
+            product_title="Acenail Wide Headbands Women Knotted Turban Headband Elastic Non Slip Hairbands Floral Workout Headbands Yoga Cotton Hair Scarfs Boho Head Wraps Fashion Hair Accessories for Women 4Pcs(Bohemian)",
+            thumbnail_url="https://m.media-amazon.com/images/I/71qLcbt3qOL._SL1500_.jpg",
+        ),
+        AffiliateLink(
+            categories=["winter fashion inspo"],
+            url="https://amzn.to/4nxr1Js",
+            product_title="Tickled Teal Women's Long Sleeve Casual Loose Sweater Outerwear",
+            thumbnail_url="https://m.media-amazon.com/images/I/81uNGQnp5RL._AC_SX679_.jpg",
+        ),
+        AffiliateLink(
+            categories=["winter fashion inspo"],
+            url="https://amzn.to/41SNNTG",
+            product_title="https://amzn.to/41SNNTG",
+            thumbnail_url="https://m.media-amazon.com/images/I/71q88UCL5UL._AC_SX569_.jpg",
+        ),
+        AffiliateLink(
+            categories=["future wedding plans"],
+            url="https://amzn.to/4gozooj",
+            product_title="Lillian Rose Wedding Planning Stemless Wine Glass, Height 4.75, Gold",
+            thumbnail_url="https://m.media-amazon.com/images/I/61kHKXxk1UL._AC_SL1200_.jpg",
+        ),
+        AffiliateLink(
+            categories=["future wedding plans"],
+            url="https://amzn.to/3VjQnOR",
+            product_title="Wedding Planning Cup - Future Mrs. 12oz Wine Tumbler with Lid and Straw - Perfect Engagement Gift For Her",
+            thumbnail_url="https://m.media-amazon.com/images/I/61dqT8iUamL._AC_SL1500_.jpg",
+        ),
+    ]
+    result = service.get_bulk_create_from_affiliate_links_csv(
+        affiliate_links=links, skipUsedCheck=False
+    )
+    print(result)
