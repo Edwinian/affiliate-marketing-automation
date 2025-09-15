@@ -1,13 +1,13 @@
 import time
 import execute_crons
 from logger_service import LoggerService
+from common import os, load_dotenv
 
 
 def lambda_handler(event, context):
     logger = LoggerService(name="lambda")
 
-    # Target duration: 10 minutes (600 seconds)
-    target_duration = 600
+    target_duration = os.getenv("TARGET_DURATION", 5)
     start_time = time.time()
     total_execution_time = 0
 
