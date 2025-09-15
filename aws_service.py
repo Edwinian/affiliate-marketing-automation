@@ -17,18 +17,18 @@ class AWSService:
 
     def __init__(self):
         self.logger_service = LoggerService(name=self.__class__.__name__)
-        self.region_name = os.getenv("AWS_REGION", "us-east-1")
-        self.access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-        self.secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        self.region_name = os.getenv("AMAZON_WEB_SERVICE_REGION", "us-east-1")
+        self.access_key_id = os.getenv("AMAZON_WEB_SERVICE_ACCESS_KEY_ID")
+        self.secret_access_key = os.getenv("AMAZON_WEB_SERVICE_SECRET_ACCESS_KEY")
         self.ses_client = boto3.client(
             "ses",
             region_name=self.region_name,
-            aws_access_key_id=self.access_key_id,
-            aws_secret_access_key=self.secret_access_key,
+            AMAZON_WEB_SERVICE_ACCESS_KEY_ID=self.access_key_id,
+            AMAZON_WEB_SERVICE_SECRET_ACCESS_KEY=self.secret_access_key,
         )
         session = boto3.Session(
-            aws_access_key_id=self.access_key_id,
-            aws_secret_access_key=self.secret_access_key,
+            AMAZON_WEB_SERVICE_ACCESS_KEY_ID=self.access_key_id,
+            AMAZON_WEB_SERVICE_SECRET_ACCESS_KEY=self.secret_access_key,
             region_name=self.region_name,
         )
         self.s3_client = session.client(
@@ -45,7 +45,7 @@ class AWSService:
                 max_pool_connections=10,
             ),
         )
-        self.bucket_name = os.getenv("AWS_S3_BUCKET")
+        self.bucket_name = os.getenv("AMAZON_WEB_SERVICE_S3_BUCKET")
 
     def get_string_from_s3(
         self, key: str, file_format: str = "txt", try_count: int = 3
