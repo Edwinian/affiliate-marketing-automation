@@ -11,37 +11,26 @@ def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = N
     logger = LoggerService(name="execute_crons")
     affiliate_programs: list[AffiliateProgram] = [VPNService()]
 
-    # Set the duration to 10 minutes (600 seconds)
-    total_duration = 5
-    start_time = time.time()
+    for program in affiliate_programs:
+        name = program.__class__.__name__
+        logger.set_prefix(name)
 
-    while (time.time() - start_time) < total_duration:
-        for program in affiliate_programs:
-            name = program.__class__.__name__
-            logger.set_prefix(name)
+        try:
+            program_start_time = time.time()
+            custom_links = (
+                custom_links_map.get(program.PROGRAM_KEY, [])
+                if custom_links_map
+                else []
+            )
 
-            try:
-                program_start_time = time.time()
-                custom_links = (
-                    custom_links_map.get(program.PROGRAM_KEY, [])
-                    if custom_links_map
-                    else []
-                )
+            # Execute the program's cron job
+            program.execute_cron(custom_links=custom_links)
 
-                # Execute the program's cron job
-                program.execute_cron(custom_links=custom_links)
-
-                program_end_time = time.time()
-                execution_time = program_end_time - program_start_time
-                logger.info(
-                    f"Finished execution of {name}: {execution_time:.2f} seconds"
-                )
-            except Exception as e:
-                logger.error(f"Error executing cron for {name}: {e}")
-
-    end_time = time.time()
-    execution_time = end_time - start_time
-    logger.info(f"Finished execution of: {execution_time:.2f} seconds")
+            program_end_time = time.time()
+            execution_time = program_end_time - program_start_time
+            logger.info(f"Finished execution of {name}: {execution_time:.2f} seconds")
+        except Exception as e:
+            logger.error(f"Error executing cron for {name}: {e}")
 
 
 # Local test
