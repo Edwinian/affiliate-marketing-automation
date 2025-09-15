@@ -514,9 +514,7 @@ class PinterestService(Channel):
             return True
         except requests.RequestException as e:
             self.logger.error(
-                "Error refreshing token: %s - %s",
-                e.response.status_code if e.response else "No response",
-                e.response.json() if e.response else str(e),
+                f"Error refreshing token: {e} - {e.response.status_code if e.response else "No response"} {e.response.json() if e.response else str(e)}"
             )
             return False
 
