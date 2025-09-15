@@ -23,12 +23,12 @@ class AWSService:
         self.ses_client = boto3.client(
             "ses",
             region_name=self.region_name,
-            AMAZON_WEB_SERVICE_ACCESS_KEY_ID=self.access_key_id,
-            AMAZON_WEB_SERVICE_SECRET_ACCESS_KEY=self.secret_access_key,
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
         )
         session = boto3.Session(
-            AMAZON_WEB_SERVICE_ACCESS_KEY_ID=self.access_key_id,
-            AMAZON_WEB_SERVICE_SECRET_ACCESS_KEY=self.secret_access_key,
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
             region_name=self.region_name,
         )
         self.s3_client = session.client(

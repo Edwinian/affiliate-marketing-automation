@@ -1,5 +1,5 @@
 import time
-import execute_crons
+from execute_crons import execute_crons
 from logger_service import LoggerService
 from common import os, load_dotenv
 
