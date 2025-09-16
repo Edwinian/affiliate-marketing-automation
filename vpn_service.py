@@ -15,5 +15,6 @@ class VPNService(AffiliateProgram):
                 url="https://go.nordvpn.net/aff_c?offer_id=15&aff_id=131575&url_id=902",
                 product_title="NordVPN",
                 categories=categories,
+                cta_image_url="https://edwinchan6.wordpress.com/wp-content/uploads/2025/09/affiliate-sales-campaign-1500x300-en-us.png",
             )
         ][: self.LINK_LIMIT]

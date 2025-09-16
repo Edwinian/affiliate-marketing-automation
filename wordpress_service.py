@@ -488,11 +488,20 @@ class WordpressService(Channel):
             return '<nav class="dynamic-nav"><ul><li>Error generating navbar</li></ul></nav>'
 
     def create(
-        self, title: str, image_url: str, affiliate_link: AffiliateLink
+        self, title: str, affiliate_link: AffiliateLink
     ) -> CreateChannelResponse:
         try:
-            content = self.get_post_content(title, affiliate_link)
-            featured_media_id = self.upload_feature_image(image_url) if image_url else 0
+            paragraph_count = 3
+            image_urls = self.media_service.get_image_urls(
+                query=affiliate_link.categories[0], limit=paragraph_count + 1
+            )
+            content = self.get_post_content(
+                title=title,
+                affiliate_link=affiliate_link,
+                image_urls=image_urls,
+                paragraph_count=paragraph_count,
+            )
+            featured_media_id = self.upload_feature_image(image_urls[-1])
             category_ids = self.get_category_ids(affiliate_link.categories) or [
                 self.create_category(name) for name in affiliate_link.categories
             ]
@@ -674,7 +683,11 @@ class WordpressService(Channel):
             return []
 
     def get_post_content(
-        self, title: str, affiliate_link: AffiliateLink, paragraph_count: int = 3
+        self,
+        title: str,
+        affiliate_link: AffiliateLink,
+        image_urls: list[str],
+        paragraph_count: int = 3,
     ) -> str:
         try:
             prompt_splits = [
@@ -683,6 +696,7 @@ class WordpressService(Channel):
                 f"2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs",
                 f"Each paragraph is preceded by a title that summarizes the paragraph wrapped with the <h3><b></b></h3> tag instead of the <p></p> tag",
                 f"The last paragraph relates the content to {affiliate_link.product_title}, and explain why it is a good choice",
+                f"Add these images in front of each paragraph respectively, wrapped with the <img> tag with style 'max-width: 100%; height: auto; display: block;': {', '.join(image_urls[:paragraph_count])}",
                 f"The conclusion should include a call to action",
                 f"Return the post content only",
             ]
@@ -690,9 +704,19 @@ class WordpressService(Channel):
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
 
-            if affiliate_link:
-                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>\n\n<small>{self.DISCLOSURE}</small>'
+            # Add CTA (image or button)
+            if affiliate_link.cta_image_url:
+                content += (
+                    f'\n\n<a href="{affiliate_link.url}" target="_blank">'
+                    f'<img src="{affiliate_link.cta_image_url}" alt="{affiliate_link.product_title} CTA" style="max-width: 100%; height: auto; display: block;">'
+                    f"</a>"
+                )
+            else:
+                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>'
 
+            content += f"\n\n<small>{self.DISCLOSURE}</small>"
+
+            # Add related posts if any
             if similar_posts:
                 content += "\n\n<h4><strong>Related Posts</strong></h4>\n"
                 for post in similar_posts:

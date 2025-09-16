@@ -196,18 +196,13 @@ class PinterestService(Channel):
         category: str,
         link: str,
         publish_delay_min: int,
-        image_limit: int = 1,
-        thumbnail_url: Optional[str] = None,
+        thumbnail_url: str,
     ):
         if len(link) > 2000:
             self.logger.warning(f"Link too long (>2000 chars), skipping: {link}")
             return
 
-        image_url = thumbnail_url or self.media_service.get_image_url(
-            query=category, limit=image_limit
-        )
-
-        if not image_url:
+        if not thumbnail_url:
             self.logger.warning(f"No image found for '{title}'")
             return
 
@@ -229,7 +224,7 @@ class PinterestService(Channel):
 
         return {
             "Title": self.get_pin_title(title),
-            "Media URL": image_url,
+            "Media URL": thumbnail_url,
             "Pinterest board": category.title(),
             "Description": description,
             "Link": link,
@@ -259,6 +254,7 @@ class PinterestService(Channel):
 
         csv_data = []
         category_counts = self.get_category_counts(pin_sources=posts_with_no_pins)
+        used_thumbnail_urls = []
 
         for i, post in enumerate(posts_with_no_pins):
             if len(csv_data) >= limit or self.BULK_CREATE_LIMIT:
@@ -280,12 +276,19 @@ class PinterestService(Channel):
                     self.logger.warning(f"No valid board for category '{category}'")
                     continue
 
+                image_urls = self.media_service.get_image_urls(
+                    query=category, limit=category_counts[category]
+                )
+                image_urls = [
+                    url for url in image_urls if url not in used_thumbnail_urls
+                ]
+                thumbnail_url = image_urls[0]
                 data_row = self.get_csv_row_data(
                     title=title,
                     category=category,
                     link=link,
                     publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
-                    image_limit=category_counts[category],
+                    thumbnail_url=thumbnail_url,
                 )
 
                 if not data_row:
@@ -295,6 +298,7 @@ class PinterestService(Channel):
                     f"Prepared CSV pin data - Title: {title}, Board ID: {board_id}, Link: {link}"
                 )
 
+                used_thumbnail_urls.append(thumbnail_url)
                 csv_data.append(data_row)
             except Exception as e:
                 self.logger.error(f"Error processing post '{post.title}': {e}")

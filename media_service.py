@@ -9,7 +9,6 @@ from common import os, load_dotenv, requests
 
 class MediaService:
     query_image_map: dict[str, list[str]] = {}
-    used_image_urls: list[str] = []
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
@@ -69,12 +68,12 @@ class MediaService:
             self.logger.error(f"Pexels API error for query '{query}': {str(e)}")
             return fetched_image_urls
 
-    def get_image_url(
+    def get_image_urls(
         self,
         query: str,
         limit: int = 1,
         size: str = "original",
-    ) -> str:
+    ) -> list[str]:
         """
         Fetch a single unused image URL for the given query, prioritizing relevance.
 
@@ -100,16 +99,7 @@ class MediaService:
             self.query_image_map[query] = images
 
         query_images = self.query_image_map[query]
-        random_image_idx = random.randint(0, len(query_images) - 1)
-        image_url = query_images[random_image_idx]
-
-        # Find the next unused image
-        while image_url in self.used_image_urls:
-            random_image_idx = random.randint(0, len(query_images) - 1)
-            image_url = query_images[random_image_idx]
-
-        self.used_image_urls.append(image_url)
-        return image_url
+        return query_images
 
     def add_used_affiliate_links(self, used_links: list[UsedLink] = []) -> None:
         """

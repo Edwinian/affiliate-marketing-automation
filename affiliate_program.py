@@ -88,12 +88,8 @@ class AffiliateProgram(ABC):
                 )
 
                 try:
-                    image_url = self.media_service.get_image_url(
-                        query=link.categories[0]
-                    )
                     new_post = self.wordpress.create(
                         title=title,
-                        image_url=image_url,
                         affiliate_link=link,
                     )
 
