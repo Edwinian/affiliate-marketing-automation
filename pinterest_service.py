@@ -13,7 +13,7 @@ from common import os, load_dotenv, requests
 
 
 class PinterestService(Channel):
-    SKIP_KEYWORDS = ["outfit ideas"]
+    SKIP_KEYWORDS = ["outfit ideas", "hair styles"]
     query_keywords_map: dict[str, list[str]] = {}
 
     def __init__(
@@ -49,12 +49,12 @@ class PinterestService(Channel):
         count_dict = {}
 
         for source in pin_sources:
-            for category in source.categories:  # Check every category in the list
-                count_dict[
-                    category
-                ] += 1  # Note: This counts *any* occurrence, not just first
+            for category in source.categories:
+                if category not in count_dict:
+                    count_dict[category] = 0
+                count_dict[category] += 1
 
-        return dict(count_dict)
+        return count_dict
 
     def get_bulk_create_from_affiliate_links_csv(
         self, affiliate_links: List[AffiliateLink], skipUsedCheck: bool = False
@@ -362,20 +362,19 @@ class PinterestService(Channel):
         """
         trend_count: Dict[str, int] = {}
 
-        def get_unique_keywords(
+        def _get_unique_keywords(
             sorted_trends: list[tuple[str, int]],
         ) -> list[tuple[str, int]]:
             """
             Process a list of keyword tuples:
-            - Remove common plural endings ('s' or 'es') from each word in the keyword.
-            - Filter out keywords that are substrings of other keywords, keeping longer terms.
+            - Filter out keywords that, after removing plural endings ('s' or 'es'), are substrings of other keywords.
+            - Keep original keywords in the output, prioritizing longer terms and higher counts.
             """
             if not sorted_trends:
                 return []
 
-            # Step 1: Remove plural endings from each keyword
-            processed = []
-            for keyword, count in sorted_trends:
+            # Helper function to get singular form for substring comparison
+            def to_singular(keyword: str) -> str:
                 words = keyword.split()
                 singular_words = []
                 for word in words:
@@ -384,29 +383,44 @@ class PinterestService(Channel):
                         singular_words.append(singular)
                     elif word.endswith("s") and len(word) > 1:
                         singular = word[:-1]  # e.g., nails -> nail, outfits -> outfit
-                        singular_words.append(singular)
+                        singular_words.append(
+                            word
+                        )  # Keep original for non-plural cases
                     else:
                         singular_words.append(word)  # e.g., hair, braid
-                processed.append((" ".join(singular_words), count))
+                return " ".join(singular_words)
 
-            # Step 2: Filter out keywords that are substrings of others
+            # Step 1: Create a list with original keywords and their singular forms for comparison
+            processed = [
+                (keyword, count, to_singular(keyword))
+                for keyword, count in sorted_trends
+            ]
+
+            # Step 2: Filter out keywords whose singular form is a substring of another keyword's singular form
             unique = []
-            # Sort by length (descending) and count (descending) to prioritize longer terms and higher counts
+            # Sort by length of original keyword (descending) and count (descending)
             processed = sorted(processed, key=lambda x: (-len(x[0].split()), -x[1]))
-            for kw, count in processed:
-                # Skip duplicates (based on keyword only)
-                if any(kw == existing[0] for existing in unique):
+
+            for orig_kw, count, singular_kw in processed:
+                # Skip duplicates (based on original keyword)
+                if any(orig_kw == existing[0] for existing in unique):
                     continue
-                # Skip if this keyword is a substring of any existing unique keyword
-                if any(kw in existing[0] and kw != existing[0] for existing in unique):
+                # Skip if this keyword's singular form is a substring of any existing unique keyword's singular form
+                if any(
+                    singular_kw in to_singular(existing[0])
+                    and singular_kw != to_singular(existing[0])
+                    for existing in unique
+                ):
                     continue
-                # Remove existing unique keywords that are substrings of this one
+
+                # Remove existing unique keywords whose singular form is a substring of this one
                 unique = [
                     existing
                     for existing in unique
-                    if existing[0] not in kw or existing[0] == kw
+                    if to_singular(existing[0]) not in singular_kw
+                    or to_singular(existing[0]) == singular_kw
                 ]
-                unique.append((kw, count))
+                unique.append((orig_kw, count))
 
             # Sort by original count (descending) and word count (descending) to match input sorting
             unique = sorted(unique, key=lambda x: (-x[1], -len(x[0].split())))
@@ -454,7 +468,7 @@ class PinterestService(Channel):
                 -len(x[0].split()),
             ),
         )
-        sorted_trends = get_unique_keywords(sorted_trends)
+        sorted_trends = _get_unique_keywords(sorted_trends)
 
         # Return the top 'limit' trend names
         return [trend for trend, _ in sorted_trends[:limit]]
@@ -695,63 +709,63 @@ if __name__ == "__main__":
     links = [
         AffiliateLink(
             categories=["fall nails"],
-            url="https://amzn.to/3KnWaAs",
-            product_title="KISS imPRESS Press On Nails Color FX Hidden Gem No Glue",
-            thumbnail_url="https://m.media-amazon.com/images/I/71e6Fghq8KL._SL1500_.jpg",
+            url="https://amzn.to/4n2x2O9",
+            product_title="Glamnetic Reusable Press On Nails Berry Maroon Stick On",
+            thumbnail_url="https://m.media-amazon.com/images/I/61EDmFSjsfL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["fall nails"],
-            url="https://amzn.to/4gof725",
-            product_title="GLAMERMAID Cherry Red Press on Nails Medium Almond, Handmade Jelly Soft Gel Dark Red Glue on Nails Stiletto, Burgundy Emo Fake Nails Short Oval, Reusable Acrylic Stick on False Nails Kit for Women",
-            thumbnail_url="https://m.media-amazon.com/images/I/61xZBWKjDSL._SL1500_.jpg",
+            url="https://amzn.to/3IeeBqQ",
+            product_title="30Pcs 3D Fall Press on Nails Medium Almond Maple Leaf Fake Nails Handmade Acrylic Nails Autumn Flower Rhinestones Glue on Nail French Tip False Nails Thanksgiving Gold Leaves Artificial Nail Decor",
+            thumbnail_url="https://m.media-amazon.com/images/I/710QetAc4YL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["fall outfits"],
-            url="https://amzn.to/48dTrUb",
-            product_title="Trendy Queen Women's Oversized Cable Knit Crewneck Sweaters",
-            thumbnail_url="https://m.media-amazon.com/images/I/71l9N09tGUL._AC_SY741_.jpg",
+            url="https://amzn.to/47G0zbR",
+            product_title="Trendy Queen Women's 2 Piece Matching Lounge Set Long Sleeve Slightly Crop Top Wide Leg Pants Casual Sweatsuit",
+            thumbnail_url="https://m.media-amazon.com/images/I/61icMXLgUGL._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["fall outfits"],
-            url="https://amzn.to/4gmeHsW",
-            product_title="Dokotoo Women's Oversized Denim Jacket Casual Long Sleeve Denim Shirts Distresse Jean Jacket Fall Outfits 2025",
-            thumbnail_url="https://m.media-amazon.com/images/I/81y1FUqfhmL._AC_SY741_.jpg",
+            url="https://amzn.to/4mjcujs",
+            product_title="Trendy Queen Cropped Cardigan Sweaters for Women Lightweight Crop Cotton Knit Y2k Fall Outfits Fashion Clothes 2025",
+            thumbnail_url="https://m.media-amazon.com/images/I/71EMLE2FjpL._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["winter hair braid"],
-            url="https://amzn.to/41W00qB",
-            product_title="K-Elewon 3 Pack Women Wide Elastic Head Wrap Headband Sports yoga Hair Band",
-            thumbnail_url="https://m.media-amazon.com/images/I/71cgrDfuutL._AC_SX679_.jpg",
+            url="https://amzn.to/3JXYqP3",
+            product_title="2Pcs Braided Ponytail Extensions with Hair Ties Soft Synthetic Hair Pieces Straight Wrap Around Hair Extensions Pony Tail Hairpieces Accessories for Women Daily Wear 16 Inch (Light Brown)",
+            thumbnail_url="https://m.media-amazon.com/images/I/71wt8qdskDL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["winter hair braid"],
-            url="https://amzn.to/4meIXqU",
-            product_title="Acenail Wide Headbands Women Knotted Turban Headband Elastic Non Slip Hairbands Floral Workout Headbands Yoga Cotton Hair Scarfs Boho Head Wraps Fashion Hair Accessories for Women 4Pcs(Bohemian)",
-            thumbnail_url="https://m.media-amazon.com/images/I/71qLcbt3qOL._SL1500_.jpg",
+            url="https://amzn.to/4moglMf",
+            product_title="DIGUAN 5 Strands Synthetic Hair Braided Headband Classic Chunky Wide Plaited Braids Elastic Stretch Hairpiece Women Girl Beauty accessory, 56g (#Medium Brown)",
+            thumbnail_url="https://m.media-amazon.com/images/I/51nBQRyv34L._SL1001_.jpg",
         ),
         AffiliateLink(
             categories=["winter fashion inspo"],
-            url="https://amzn.to/4nxr1Js",
-            product_title="Tickled Teal Women's Long Sleeve Casual Loose Sweater Outerwear",
-            thumbnail_url="https://m.media-amazon.com/images/I/81uNGQnp5RL._AC_SX679_.jpg",
+            url="https://amzn.to/4nBZ2bB",
+            product_title="Lacavocor Women's Warm Shawl Wrap Cape Winter Cardigan Sweaters Open Front Poncho",
+            thumbnail_url="https://m.media-amazon.com/images/I/81Y0gBLjOhL._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["winter fashion inspo"],
-            url="https://amzn.to/41SNNTG",
-            product_title="https://amzn.to/41SNNTG",
+            url="https://amzn.to/4nD537T",
+            product_title="Hooever Women's Winter Wool Coat Casual Notch Lapel Single-Breasted Peacoat",
             thumbnail_url="https://m.media-amazon.com/images/I/71q88UCL5UL._AC_SX569_.jpg",
         ),
         AffiliateLink(
             categories=["future wedding plans"],
-            url="https://amzn.to/4gozooj",
-            product_title="Lillian Rose Wedding Planning Stemless Wine Glass, Height 4.75, Gold",
-            thumbnail_url="https://m.media-amazon.com/images/I/61kHKXxk1UL._AC_SL1200_.jpg",
+            url="https://amzn.to/4n8E5oP",
+            product_title="And Per Se Wedding Planner Book and Organizer - Wedding Planning for Bride, Engagement Gifts for Couples, Future Brides and Grooms(Mystic Grey)",
+            thumbnail_url="https://m.media-amazon.com/images/I/71HimmaC5lL._AC_SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["future wedding plans"],
-            url="https://amzn.to/3VjQnOR",
-            product_title="Wedding Planning Cup - Future Mrs. 12oz Wine Tumbler with Lid and Straw - Perfect Engagement Gift For Her",
-            thumbnail_url="https://m.media-amazon.com/images/I/61dqT8iUamL._AC_SL1500_.jpg",
+            url="https://amzn.to/48iuTcI",
+            product_title="Wedding Planner Book and Organizer, Unique Engagement Gift for Newly Engaged Couples, Bride Gifts Wedding Planner Book",
+            thumbnail_url="https://m.media-amazon.com/images/I/81KJ19SkCOL._AC_SL1500_.jpg",
         ),
     ]
     result = service.get_bulk_create_from_affiliate_links_csv(
