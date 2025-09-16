@@ -697,7 +697,7 @@ class WordpressService(Channel):
                 f"Each paragraph is preceded by a title that summarizes the paragraph wrapped with the <h3><b></b></h3> tag instead of the <p></p> tag",
                 f"The last paragraph relates the content to {affiliate_link.product_title}, and explain why it is a good choice",
                 f"Add these images in front of each paragraph respectively, wrapped with the <img> tag with style 'max-width: 100%; height: auto; display: block;': {', '.join(image_urls[:paragraph_count])}",
-                f"The conclusion should include a call to action",
+                f"The conclusion should include a strong call to action to help boost conversions",
                 f"Return the post content only",
             ]
             prompt = ". ".join(prompt_splits)
