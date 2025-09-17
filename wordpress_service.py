@@ -703,16 +703,11 @@ class WordpressService(Channel):
             prompt = ". ".join(prompt_splits)
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
-
-            # Add CTA (image or button)
-            if affiliate_link.cta_image_url:
-                content += (
-                    f'\n\n<a href="{affiliate_link.url}" target="_blank">'
-                    f'<img src="{affiliate_link.cta_image_url}" alt="{affiliate_link.product_title} CTA" style="max-width: 100%; height: auto; display: block;">'
-                    f"</a>"
-                )
-            else:
-                content += f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>'
+            cta_content = (
+                affiliate_link.cta_content
+                or f'<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>'
+            )
+            content += f"\n\n{cta_content}"
 
             content += f"\n\n<small>{self.DISCLOSURE}</small>"
 

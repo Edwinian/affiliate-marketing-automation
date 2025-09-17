@@ -28,6 +28,7 @@ class StrEnum(str, Enum):
 class ProgramKey(StrEnum):
     AMAZON = "AMAZON"
     VPN = "VPN"
+    FIVERR = "FIVERR"
 
 
 class LlmErrorPrompt(StrEnum):

@@ -3,13 +3,14 @@ from typing import Optional
 from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
 from enums import ProgramKey
+from fiverr_service import FiverrService
 from logger_service import LoggerService
 from vpn_service import VPNService
 
 
 def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None):
     logger = LoggerService(name="execute_crons")
-    affiliate_programs: list[AffiliateProgram] = [VPNService()]
+    affiliate_programs: list[AffiliateProgram] = [VPNService(), FiverrService()]
 
     for program in affiliate_programs:
         name = program.__class__.__name__

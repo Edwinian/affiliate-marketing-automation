@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
 from common import os, load_dotenv
-from typing import List, Optional
 
 from all_types import AffiliateLink, UsedLink
 from aws_service import AWSService
-from enums import ProgramKey
 from llm_service import LlmService
 from logger_service import LoggerService
 from media_service import MediaService
