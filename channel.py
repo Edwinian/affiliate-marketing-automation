@@ -16,15 +16,52 @@ class Channel(ABC):
         self.llm_service = LlmService()
         self.media_service = MediaService()
 
+    def get_keywords_from_model(
+        self,
+        affiliate_link: AffiliateLink,
+        limit: int = 5,
+    ) -> list[str]:
+        try:
+            prompt_splits = [
+                f"Give me a list of {limit} SEO friendly keywords about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}"
+                f"The keywords are SEO friendly",
+                f"The keywords do not directly mention the product",
+                f"Return the keywords only separated by commas",
+            ]
+            prompt = ". ".join(prompt_splits)
+            keywords_text = self.llm_service.generate_text(prompt)
+            keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
+            return keywords[:limit]
+        except Exception as e:
+            self.logger.error(f"Error generating keywords from model: {e}")
+            return affiliate_link.categories[:limit]
+
     def get_title(
-        self, affiliate_link: AffiliateLink, category_titles: list[str] = []
+        self,
+        affiliate_link: AffiliateLink,
+        category_titles: list[str] = [],
+        limit: Optional[int] = None,
     ) -> str:
         try:
-            prompt = f"Give me one post title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}, that is SEO friendly and time-agnostic, without directly mentioning the product, separate each word with space, return the title only without quotes."
+            prompt_splits = [
+                f"Give me one title about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}"
+                f"The title is SEO friendly",
+                f"The title does not directly mention the product",
+                f"The title separates each word with space",
+                f"Return the title only without quotes",
+            ]
 
             if category_titles:
-                prompt += f" The title relates to but should not overlap with existing titles: {', '.join(category_titles)}"
+                prompt_splits.append(
+                    f"The title relates to but should not overlap with existing titles: {', '.join(category_titles)}"
+                )
 
+            if limit:
+                prompt_splits.append(
+                    f"The title should be no more than {limit} characters including spaces"
+                )
+
+            prompt = ". ".join(prompt_splits)
             title = self.llm_service.generate_text(prompt)
 
             if category_titles and LlmErrorPrompt.LENGTH_EXCEEDED in title:

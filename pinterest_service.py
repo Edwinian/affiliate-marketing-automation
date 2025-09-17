@@ -74,14 +74,13 @@ class PinterestService(Channel):
         all_pins = self.get_pins()
         pin_titles = [pin.title for pin in all_pins]
         pin_links = [pin.link for pin in all_pins]
-        category_counts = self.get_category_counts(pin_sources=unused_links)
 
         for i, affiliate_link in enumerate(unused_links):
             if len(csv_data) >= self.BULK_CREATE_LIMIT:
                 break
 
             try:
-                title = self.get_title(affiliate_link)
+                title = self.get_title(affiliate_link=affiliate_link, limit=100)
                 link = affiliate_link.url
                 csv_titles = [row["Title"] for row in csv_data]
 
@@ -100,18 +99,11 @@ class PinterestService(Channel):
                     if affiliate_link.categories
                     else "Others"
                 )
-                board_id = self._get_board_id(category)
-
-                if not board_id:
-                    self.logger.warning(f"No valid board for category '{category}'")
-                    continue
-
                 data_row = self.get_csv_row_data(
                     title=title,
                     category=category,
                     link=link,
                     publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
-                    image_limit=category_counts[category],
                     thumbnail_url=affiliate_link.thumbnail_url,
                 )
 
@@ -119,7 +111,7 @@ class PinterestService(Channel):
                     continue
 
                 self.logger.info(
-                    f"Prepared csv pin data - Title: {title}, Board ID: {board_id}, Link: {link}"
+                    f"Prepared csv pin data - Title: {title}, Link: {link}"
                 )
 
                 csv_data.append(data_row)
@@ -178,17 +170,34 @@ class PinterestService(Channel):
             self.logger.error(f"Error writing CSV file: {e}")
             return ""
 
-    def get_pin_title(self, title: str) -> str:
-        title_limit = 100  # Pinterest allows up to 100 characters
+    def get_create_board(
+        self, category: str, keywords: list[str] = []
+    ) -> dict[str, str]:
+        board = category
+        board_id = self._get_board_id(board)
 
-        if len(title) <= title_limit:
-            return title
+        if not keywords:
+            return {
+                "title": board,
+                "id": board_id,
+            }
 
-        paraphrase_title = self.llm_service.generate_text(
-            f"Paraphrase this title to be less than {title_limit} characters (including spaces) without losing its meaning: '{title}'"
-        )
+        # Assign pin to an existing board named by a keyword, if none, create one for the first keyword and assign pin to it
+        for keyword in keywords:
+            id = self._get_board_id(keyword, get_or_create=False)
+            if id:
+                board = keyword
+                board_id = id
+                break
 
-        return paraphrase_title[:title_limit]
+        if board == category:
+            board = keywords[0]
+            board_id = self._get_board_id(board)
+
+        return {
+            "title": board,
+            "id": board_id,
+        }
 
     def get_csv_row_data(
         self,
@@ -212,20 +221,20 @@ class PinterestService(Channel):
         ).strftime("%Y-%m-%d %H:%M:%S")
         description = self.get_pin_description(title=title)
 
-        keyword_limit = 5  # Use top 5 keywords for SEO
-        keywords = (
-            self.query_keywords_map.get(category, [])
-            or self.get_keywords(limit=keyword_limit, include_keywords=[category])
-            or self.get_keywords_from_model(
-                limit=keyword_limit, include_keywords=[category]
+        keywords = self.query_keywords_map.get(
+            category, []
+        ) or self.get_keywords_from_model(
+            affiliate_link=AffiliateLink(
+                url=link, product_title=title, categories=[category]
             )
         )
         self.query_keywords_map[category] = keywords
+        board = self.get_create_board(category=category, keywords=keywords)
 
         return {
-            "Title": self.get_pin_title(title),
+            "Title": title,
             "Media URL": thumbnail_url,
-            "Pinterest board": category.title(),
+            "Pinterest board": board["title"].title(),
             "Description": description,
             "Link": link,
             "Publish date": publish_date,
@@ -270,12 +279,6 @@ class PinterestService(Channel):
 
                 category = post.categories[0].name if post.categories else "Others"
                 link = post.link
-                board_id = self._get_board_id(category)
-
-                if not board_id:
-                    self.logger.warning(f"No valid board for category '{category}'")
-                    continue
-
                 image_urls = self.media_service.get_image_urls(
                     query=category, limit=category_counts[category]
                 )
@@ -295,7 +298,7 @@ class PinterestService(Channel):
                     continue
 
                 self.logger.info(
-                    f"Prepared CSV pin data - Title: {title}, Board ID: {board_id}, Link: {link}"
+                    f"Prepared CSV pin data - Title: {title}, Link: {link}"
                 )
 
                 used_thumbnail_urls.append(thumbnail_url)
@@ -340,22 +343,7 @@ class PinterestService(Channel):
 
         return csv_file_paths
 
-    def get_keywords_from_model(
-        self, limit: int = 5, include_keywords: List[str] = []
-    ) -> list[str]:
-        prompt = f"Generate a list of {limit} SEO friendly keywords related to {', '.join(include_keywords)} for Pinterest separated by commas. The keywords should be relevant to popular Pinterest searches and trends. Return the keywords only"
-
-        try:
-            keywords_text = self.llm_service.generate_text(prompt)
-            keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
-            return keywords[:limit]
-        except Exception as e:
-            self.logger.error(f"Error generating keywords from model: {e}")
-            return include_keywords[:limit]
-
-    def get_keywords(
-        self, limit: int = 5, include_keywords: List[str] = []
-    ) -> list[str]:
+    def get_trends(self, limit: int = 5, include_keywords: List[str] = []) -> list[str]:
         """
         Retrieves the top trends from Pinterest by each trend type.
         Counts occurrences of each trend type and returns the top 'limit' trend names by count.
@@ -561,7 +549,7 @@ class PinterestService(Channel):
         }
         return f"{base_url}?{urlencode(params)}", state
 
-    def _get_board_id(self, name: str) -> str:
+    def _get_board_id(self, name: str, get_or_create: bool = True) -> str:
         try:
             url = f"{self.base_url}/boards"
             response = requests.get(url, headers=self.headers)
@@ -573,7 +561,7 @@ class PinterestService(Channel):
                 None,
             )
 
-            if not board:
+            if not board and get_or_create:
                 self.logger.info(f"No board found for the name '{name}', creating one.")
                 return self.create_board(name)
 
@@ -616,7 +604,10 @@ class PinterestService(Channel):
             payload = {"name": name, "description": description}
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
-            return response.json().get("id", "")
+
+            board_id = response.json().get("id", "")
+            self.logger.info(f"New board created: {name} - {board_id}")
+            return board_id
         except requests.RequestException as e:
             self.logger.error(f"Error creating board: {e}")
             return ""
@@ -655,7 +646,13 @@ class PinterestService(Channel):
         Returns the pin ID.
         """
         try:
-            board_id = self._get_board_id(category)
+            keywords = self.get_keywords_from_model(
+                affiliate_link=AffiliateLink(
+                    url=link, product_title=title, categories=[category]
+                )
+            )
+            board = self.get_create_board(category=category, keywords=keywords)
+            board_id = board.get("id")
 
             if not board_id:
                 self.logger.info("No valid board ID found.")
@@ -665,7 +662,7 @@ class PinterestService(Channel):
             url = f"{self.base_url}/pins"
             payload = {
                 "board_id": board_id,
-                "title": self.get_pin_title(title),
+                "title": title,
                 "description": description,
                 "media_source": {"source_type": "image_url", "url": image_url},
                 "link": link,
@@ -688,8 +685,8 @@ class PinterestService(Channel):
         Generates an SEO-friendly pin description using LlmService.
         """
         disclosure = f"\n#affiliate {self.DISCLOSURE}"
-        limit = 500  # Pinterest limit
-        prompt = f"Create a Pinterest description in no more than {limit - len(disclosure)} characters (including spaces) for this title that is SEO friendly, time-agnostic, suitable for affiliate marketing, and includes a call to action, respond the description only without mentioning the length limit: '{title}'"
+        limit = 200  # Pinterest limit
+        prompt = f"Create a Pinterest description in no more than {limit - len(disclosure)} characters (including spaces) for this title that is SEO friendly, time-agnostic, suitable for affiliate marketing, and includes a strong call to action, respond the description only without mentioning the length limit: '{title}'"
 
         try:
             description = self.llm_service.generate_text(
@@ -707,69 +704,69 @@ class PinterestService(Channel):
 if __name__ == "__main__":
     service = PinterestService()
 
-    # result = service.get_keywords(limit=5)
+    # result = service.get_trends(limit=5)
     # print(result)
 
     links = [
         AffiliateLink(
             categories=["fall nails"],
-            url="https://amzn.to/4n2x2O9",
-            product_title="Glamnetic Reusable Press On Nails Berry Maroon Stick On",
-            thumbnail_url="https://m.media-amazon.com/images/I/61EDmFSjsfL._SL1500_.jpg",
+            url="https://amzn.to/4nsjYS0",
+            product_title="BTArtbox Press On Nails Short - Poison Potion, Dark Purple Almond Halloween Press On Nails with Glue for Women, Fall Opaque Soft Gel Glue On Nails in 16 Sizes - 32 Stick On Nails Kit",
+            thumbnail_url="https://m.media-amazon.com/images/I/713dLYU1pjL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["fall nails"],
-            url="https://amzn.to/3IeeBqQ",
-            product_title="30Pcs 3D Fall Press on Nails Medium Almond Maple Leaf Fake Nails Handmade Acrylic Nails Autumn Flower Rhinestones Glue on Nail French Tip False Nails Thanksgiving Gold Leaves Artificial Nail Decor",
-            thumbnail_url="https://m.media-amazon.com/images/I/710QetAc4YL._SL1500_.jpg",
+            url="https://amzn.to/3K7rraX",
+            product_title="KQueenest Dark Red Press on Nails Cat Eye, Burgundy Glitter Press on Nails Almond Medium, Sparkly Shiny Fake Nails Set, Cute Bling Glue on Nails Medium Length for Women Holiday, Gothic Design, 30 Pcs",
+            thumbnail_url="https://m.media-amazon.com/images/I/61acQ-S1sdL._SL1080_.jpg",
         ),
         AffiliateLink(
             categories=["fall outfits"],
-            url="https://amzn.to/47G0zbR",
-            product_title="Trendy Queen Women's 2 Piece Matching Lounge Set Long Sleeve Slightly Crop Top Wide Leg Pants Casual Sweatsuit",
-            thumbnail_url="https://m.media-amazon.com/images/I/61icMXLgUGL._AC_SY741_.jpg",
+            url="https://amzn.to/4nDM5ht",
+            product_title="IDEALSANXUN Womens High Waist Plaid Skirt Bodycon Pencil Wool Mini Skirts",
+            thumbnail_url="https://m.media-amazon.com/images/I/71SOOBWBRFL._AC_SY879_.jpg",
         ),
         AffiliateLink(
             categories=["fall outfits"],
-            url="https://amzn.to/4mjcujs",
-            product_title="Trendy Queen Cropped Cardigan Sweaters for Women Lightweight Crop Cotton Knit Y2k Fall Outfits Fashion Clothes 2025",
-            thumbnail_url="https://m.media-amazon.com/images/I/71EMLE2FjpL._AC_SY741_.jpg",
+            url="https://amzn.to/4nsk2Be",
+            product_title="Zeagoo Flannels for Women Cropped Shacket Jacket Fashion Plaid Button Down Shirt 2025 Fall Coat Tops",
+            thumbnail_url="https://m.media-amazon.com/images/I/81Ecg7atctL._AC_SY879_.jpg",
         ),
         AffiliateLink(
             categories=["winter hair braid"],
-            url="https://amzn.to/3JXYqP3",
-            product_title="2Pcs Braided Ponytail Extensions with Hair Ties Soft Synthetic Hair Pieces Straight Wrap Around Hair Extensions Pony Tail Hairpieces Accessories for Women Daily Wear 16 Inch (Light Brown)",
-            thumbnail_url="https://m.media-amazon.com/images/I/71wt8qdskDL._SL1500_.jpg",
+            url="https://amzn.to/46kWGqo",
+            product_title="DIGUAN Kinky Synthetic Hair Braided Headband Wide Hairpiece Women Girl Beauty accessory (8-Natural Black)",
+            thumbnail_url="https://m.media-amazon.com/images/I/71hRtXjytpL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["winter hair braid"],
-            url="https://amzn.to/4moglMf",
-            product_title="DIGUAN 5 Strands Synthetic Hair Braided Headband Classic Chunky Wide Plaited Braids Elastic Stretch Hairpiece Women Girl Beauty accessory, 56g (#Medium Brown)",
-            thumbnail_url="https://m.media-amazon.com/images/I/51nBQRyv34L._SL1001_.jpg",
+            url="https://amzn.to/468YTqf",
+            product_title="Braiding Hair Pre Stretched, 26 Inch 8 Pack Black Prestretched Braiding Hair For Women Braid Hair, Long Professional Synthetic Hair For Knotless Boho Crochet Braids,Yaki Straight Texture(26in,1b,8pc）",
+            thumbnail_url="https://m.media-amazon.com/images/I/71U35Idun6L._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["winter fashion inspo"],
-            url="https://amzn.to/4nBZ2bB",
-            product_title="Lacavocor Women's Warm Shawl Wrap Cape Winter Cardigan Sweaters Open Front Poncho",
-            thumbnail_url="https://m.media-amazon.com/images/I/81Y0gBLjOhL._AC_SY741_.jpg",
+            url="https://amzn.to/46nTBWr",
+            product_title="YKR Womens Chunky Knit Sweater Vest Sleeveless Button Down Cropped Cardigan Casual Knitted Crochet Vest with Pockets",
+            thumbnail_url="https://m.media-amazon.com/images/I/71FxZMQSyML._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["winter fashion inspo"],
-            url="https://amzn.to/4nD537T",
-            product_title="Hooever Women's Winter Wool Coat Casual Notch Lapel Single-Breasted Peacoat",
-            thumbnail_url="https://m.media-amazon.com/images/I/71q88UCL5UL._AC_SX569_.jpg",
+            url="https://amzn.to/47LR8Yv",
+            product_title="Beyove Boho Tops for Women Long Sleeve V Neck Fall Shirts Bohemian Fashion Hippie Western Dressy Casual Blouses",
+            thumbnail_url="https://m.media-amazon.com/images/I/61-cZ+I7Y9L._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["future wedding plans"],
-            url="https://amzn.to/4n8E5oP",
-            product_title="And Per Se Wedding Planner Book and Organizer - Wedding Planning for Bride, Engagement Gifts for Couples, Future Brides and Grooms(Mystic Grey)",
-            thumbnail_url="https://m.media-amazon.com/images/I/71HimmaC5lL._AC_SL1500_.jpg",
+            url="https://amzn.to/4mnCHxn",
+            product_title="AW BRIDAL Best Engagement Gifts for Fiance Her Wedding Gifts For Bride To Be∣ Future Mrs Leather Wedding Planning Book And Organizer Engagement Journal Notebook Budget Binder, 140 Pages, Rose Gold",
+            thumbnail_url="https://m.media-amazon.com/images/I/81RQqlSdbmL._AC_SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["future wedding plans"],
-            url="https://amzn.to/48iuTcI",
-            product_title="Wedding Planner Book and Organizer, Unique Engagement Gift for Newly Engaged Couples, Bride Gifts Wedding Planner Book",
-            thumbnail_url="https://m.media-amazon.com/images/I/81KJ19SkCOL._AC_SL1500_.jpg",
+            url="https://amzn.to/3IgLcfK",
+            product_title="Shintrend Wedding Planner for Bride: Wedding Planning Book and Organizer for Newly Engaged Couples 176 Pages Bridal Wedding Organizer Notebook with Sticker Checklists & Calendars for Bride To Be",
+            thumbnail_url="https://m.media-amazon.com/images/I/61eUQhWoNrL._AC_SL1500_.jpg",
         ),
     ]
     result = service.get_bulk_create_from_affiliate_links_csv(

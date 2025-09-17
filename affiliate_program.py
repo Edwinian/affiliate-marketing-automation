@@ -58,13 +58,6 @@ class AffiliateProgram(ABC):
             posts=posts, limit=limit
         )
 
-    def get_keywords_from_model(self, limit: int = 2) -> list[str]:
-        keywords = self.llm_service.generate_text(
-            f"what are the best affiliate products to promote nowadays? Give me {limit} keywords to search for, separated by comma to be split into list of string in python, return keywords only"
-        )
-        keywords = keywords.split(",")
-        return keywords
-
     def create_content_for_links(
         self, affiliate_links: list[AffiliateLink]
     ) -> list[UsedLink]:
