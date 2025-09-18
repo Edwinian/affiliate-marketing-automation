@@ -11,6 +11,7 @@ class MediaService:
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
         self.aws_service = AWSService()
+        self.query_image_map: dict[str, list[str]] = {}
 
     def fetch_image_urls(
         self,
@@ -18,7 +19,7 @@ class MediaService:
         size: str = "original",
         query: Optional[str] = None,
         next_page: Optional[str] = None,
-        fetched_image_urls: Optional[list[str]] = [],
+        fetched_image_urls: Optional[list[str]] = None,
     ) -> list[str]:
         """
         Fetch image URLs from Pexels API with pagination, preserving relevance order.
@@ -33,6 +34,9 @@ class MediaService:
         Returns:
             list[str]: List of image URLs in relevance order, up to the limit.
         """
+        if fetched_image_urls is None:  # Initialize fresh list for each new query
+            fetched_image_urls = []
+
         try:
             if next_page:
                 response = requests.get(url=next_page)
@@ -84,13 +88,21 @@ class MediaService:
             str: A single unused image URL, or empty string if none available.
         """
         query = query.lower()
-        images = self.fetch_image_urls(query=query, size=size, limit=max(limit, 10))
+        images = self.query_image_map.get(query, [])
+
+        # Fetch new images if cache is empty or insufficient
+        if len(images) < limit:
+            missing_count = limit - len(images)
+            new_images = self.fetch_image_urls(
+                query=query, size=size, limit=missing_count
+            )
+            images += new_images
+            self.query_image_map[query] = images
 
         if not images:
             self.logger.warning(f"No images found for query '{query}'")
-            return []
 
-        return images
+        return random.shuffle(images)
 
     def add_used_affiliate_links(self, used_links: list[UsedLink] = []) -> None:
         """

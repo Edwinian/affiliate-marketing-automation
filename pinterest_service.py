@@ -264,22 +264,8 @@ class PinterestService(Channel):
         csv_data = []
         category_counts = self.get_category_counts(pin_sources=posts_with_no_pins)
         used_thumbnail_urls = []
-        # Prefetch image urls by category to avoid execessive API calls
-        category_thumbnail_urls_map = {}
 
-        for post in posts_with_no_pins:
-            category = post.categories[0].name if post.categories else "Others"
-            fetched_urls = category_thumbnail_urls_map.get(category, [])
-
-            if not fetched_urls:
-                category_thumbnail_urls_map[category] = (
-                    self.media_service.get_image_urls(
-                        query=category,
-                        limit=category_counts[category],
-                    )
-                )
-
-        for post in posts_with_no_pins:
+        for i, post in enumerate(posts_with_no_pins):
             if len(csv_data) >= limit or self.BULK_CREATE_LIMIT:
                 break
 
@@ -293,7 +279,10 @@ class PinterestService(Channel):
 
                 category = post.categories[0].name if post.categories else "Others"
                 link = post.link
-                image_urls = category_thumbnail_urls_map.get(category, [])
+                image_urls = self.media_service.get_image_urls(
+                    query=category,
+                    limit=category_counts[category],
+                )
                 image_urls = [
                     url for url in image_urls if url not in used_thumbnail_urls
                 ]

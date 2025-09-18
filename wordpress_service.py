@@ -291,7 +291,7 @@ class WordpressService(Channel):
         self,
         resource: str,
         page: int = 1,
-        all_responses: List[dict] = [],
+        all_responses: Optional[List[dict]] = None,
         more_params: Optional[dict] = {},
     ) -> List[dict]:
         per_page = 100
@@ -303,6 +303,9 @@ class WordpressService(Channel):
         response = requests.get(url, headers=self.headers, params=params)
         response.raise_for_status()
         responses = response.json() if response else []
+
+        if all_responses is None:  # Initialize fresh list for each new fetch
+            all_responses = []
 
         all_responses += responses
 
@@ -704,8 +707,13 @@ class WordpressService(Channel):
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
             cta_content = (
-                affiliate_link.cta_content
-                or f'<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Shop Now</a>'
+                (
+                    f'<a href="{affiliate_link.url}" target="_blank">'
+                    f'<img src="{affiliate_link.cta_image_url}" alt="{affiliate_link.product_title} CTA" style="max-width: 100%; height: auto; display: block;">'
+                    f"</a>"
+                )
+                if affiliate_link.cta_image_url
+                else f'<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">{affiliate_link.cta_btn_text or 'Shop Now'}</a>'
             )
             content += f"\n\n{cta_content}"
 
