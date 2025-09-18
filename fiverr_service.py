@@ -27,24 +27,28 @@ class FiverrService(AffiliateProgram):
             "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816567",
         },
     ]
-    REFERRAL_BRAND_TITLE_MAP = {
-        "fiverrmarketplace": {
+    REFERRAL_BRANDS = [
+        {
+            "key": "fiverrmarketplace",
             "title": "Fiverr Marketplace",
             "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816599",
         },
-        "fp": {
+        {
+            "key": "fp",
             "title": "Fiverr Pro",
             "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816713",
         },
-        "logomaker": {
+        {
+            "key": "logomaker",
             "title": "Logo Maker",
             "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816561",
         },
-        "fiverraffiliates": {
+        {
+            "key": "fiverraffiliates",
             "title": "Fiverr Sub Affiliates",
             "cta_image_url": "https://edwinchan6.wordpress.com/wp-content/uploads/2025/09/fiverr-subaffiliates-cta-banner.jpg",
         },
-    }
+    ]
 
     def get_affiliate_links(self) -> list[AffiliateLink]:
         """Generate a list of affiliate links for Fiverr services."""
@@ -59,17 +63,14 @@ class FiverrService(AffiliateProgram):
             )
             for cat in self.FIVERR_CATEGORIES
         ]
-        referral_brands = list(self.REFERRAL_BRAND_TITLE_MAP.keys())
         referral_links = [
             AffiliateLink(
-                url=f"https://go.fiverr.com/visit/?bta={os.getenv("FIVERR_AFFILIATE_ID")}&brand={brand}",
-                product_title=self.REFERRAL_BRAND_TITLE_MAP[brand]["title"],
-                categories=[self.REFERRAL_BRAND_TITLE_MAP[brand]["title"]],
-                cta_image_url=self.REFERRAL_BRAND_TITLE_MAP[brand].get(
-                    "cta_image_url", None
-                ),
+                url=f"https://go.fiverr.com/visit/?bta={os.getenv("FIVERR_AFFILIATE_ID")}&brand={brand['key']}",
+                product_title=brand["title"],
+                categories=[brand["title"]],
+                cta_image_url=brand["cta_image_url"],
             )
-            for brand in referral_brands
+            for brand in self.REFERRAL_BRANDS
         ]
 
         return affiliate_links + referral_links
