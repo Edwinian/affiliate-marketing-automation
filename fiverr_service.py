@@ -8,52 +8,67 @@ class FiverrService(AffiliateProgram):
     IS_FIXED_LINK = True
     PROGRAM_KEY = ProgramKey.FIVERR
     FIVERR_CATEGORIES = [
-        "Programming & Tech",
-        "Digital Marketing",
-        "Writing & Translation",
-        "Video & Animation",
-        "Music & Audio",
-        "Business",
-        "Lifestyle",
-        "Data",
-        "Gaming",
-        "Mobile Apps",
+        {
+            "title": "Programming & Tech",
+            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816550",
+        },
+        {
+            "title": "Digital Marketing",
+            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816574",
+        },
+        {"title": "Writing & Translation", "cta_image_url": None},
+        {"title": "Video & Animation", "cta_image_url": None},
+        {"title": "Music & Audio", "cta_image_url": None},
+        {"title": "Business", "cta_image_url": None},
+        {"title": "Lifestyle", "cta_image_url": None},
+        {"title": "Data", "cta_image_url": None},
+        {"title": "Gaming", "cta_image_url": None},
+        {
+            "title": "Mobile Apps",
+            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816567",
+        },
     ]
+    REFERRAL_BRAND_TITLE_MAP = {
+        "fiverrmarketplace": {
+            "title": "Fiverr Marketplace",
+            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816599",
+        },
+        "fp": {
+            "title": "Fiverr Pro",
+            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816713",
+        },
+        "logomaker": {
+            "title": "Logo Maker",
+            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816561",
+        },
+        "fiverraffiliates": {
+            "title": "Fiverr Sub Affiliates",
+            "cta_image_url": "https://edwinchan6.wordpress.com/wp-content/uploads/2025/09/fiverr-subaffiliates-cta-banner.jpg",
+        },
+    }
 
     def get_affiliate_links(self) -> list[AffiliateLink]:
         """Generate a list of affiliate links for Fiverr services."""
-        gig_ads_widget = (
-            f'<iframe src="https://www.fiverr.com/gig_widgets?id=U2FsdGVkX18zdGlcB7h1nvvHf7z82xlOIGyBKcb1AZTgFy8aaVsf/b5zLolbzVBbJUY5runH/U9bFJi+d7P9u9w2BThljiquOOLIswOe5CQ684eEm7QOgCaDnFRIbUK4TO9kl6CQLGZk0fwi5dXaU5ezvre3dULf17JC4cUoTbOMXpyR2U0uNKFqnjPriDjB/cevdhOAD41R5fNncqjHMUnZogHbbHBZ2nuu6mbSoyadxg+g3SXgBq1NotbEUQFPwW8vebTa0Z4cDo1dtW8fF1BwqBeYLnrqFTUYIOS7xm0HPHKABXVfYPeifsqhfIW39uRcasAwaHPNm+p4j3XjYo/uF1OL6/yAfz29fLWRwzK2gipvcjma0FpWh4UgUBXiZVpkhckcSaJ1P1qs+STkj3Urljf2P6sZDrEG7kjM3VF6Uex2oMKxTXng8f32SW+xqbqmYy6haD2GZcxtVvUH4w==&affiliate_id={os.getenv("FIVERR_AFFILIATE_ID")}&strip_google_tagmanager=true" '
-            'loading="lazy" data-with-title="true" class="fiverr_nga_frame" frameborder="0" height="350" width="100%" '
-            'referrerpolicy="no-referrer-when-downgrade" data-mode="random_gigs" '
-            "onload=\"var frame = this; var script = document.createElement('script'); "
-            "script.addEventListener('load', function() { window.FW_SDK.register(frame); }); "
-            "script.setAttribute('src', 'https://www.fiverr.com/gig_widgets/sdk'); "
-            'document.body.appendChild(script);" ></iframe>'
-        )
-
         # Base affiliate link for general Fiverr marketplace
         affiliate_links = [
             AffiliateLink(
-                url=f"https://www.fiverr.com/?utm_source={os.getenv("FIVERR_AFFILIATE_ID")}&utm_medium=cx_affiliate&utm_campaign=_bus-y&afp=&cxd_token=1144512_42729223&show_join=true",
-                product_title=f"{cat} Freelance on Fiverr",
-                categories=[cat, "Freelance"],
-                cta_content=gig_ads_widget,
+                url=f"https://www.fiverr.com/?utm_source={os.getenv("FIVERR_AFFILIATE_ID")}&utm_medium=cx_affiliate&utm_campaign=_bus-y&afp=&cxd_token={os.getenv("FIVERR_AFFILIATE_ID")}_42729223&show_join=true",
+                product_title=f"{cat['title']} Freelance on Fiverr",
+                categories=[cat["title"], "Freelance"],
+                cta_image_url=cat.get("cta_image_url", None),
+                cta_btn_text="Explore Gigs on Fiverr",
             )
             for cat in self.FIVERR_CATEGORIES
         ]
-        referral_brand_title_map = {
-            "fiverrmarketplace": "Fiverr Marketplace",
-            "fp": "Fiverr Pro",
-            "logomaker": "Fiverr Logo Maker",
-            "fiverraffiliates": "Fiverr Affiliates",
-        }
-        referral_brands = list(referral_brand_title_map.keys())
+        referral_brands = list(self.REFERRAL_BRAND_TITLE_MAP.keys())
         referral_links = [
             AffiliateLink(
                 url=f"https://go.fiverr.com/visit/?bta={os.getenv("FIVERR_AFFILIATE_ID")}&brand={brand}",
-                product_title=referral_brand_title_map[brand],
-                categories=[referral_brand_title_map[brand]],
+                product_title=self.REFERRAL_BRAND_TITLE_MAP[brand]["title"],
+                categories=[self.REFERRAL_BRAND_TITLE_MAP[brand]["title"]],
+                cta_image_url=self.REFERRAL_BRAND_TITLE_MAP[brand].get(
+                    "cta_image_url", None
+                ),
             )
             for brand in referral_brands
         ]

@@ -8,8 +8,6 @@ from common import os, load_dotenv, requests
 
 
 class MediaService:
-    query_image_map: dict[str, list[str]] = {}
-
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
         self.aws_service = AWSService()
@@ -86,20 +84,13 @@ class MediaService:
             str: A single unused image URL, or empty string if none available.
         """
         query = query.lower()
-        query_images = self.query_image_map.get(query, [])
+        images = self.fetch_image_urls(query=query, size=size, limit=max(limit, 10))
 
-        # Fetch new images if cache is empty or insufficient
-        if len(query_images) < limit:
-            images = self.fetch_image_urls(query=query, size=size, limit=max(limit, 10))
+        if not images:
+            self.logger.warning(f"No images found for query '{query}'")
+            return []
 
-            if not images:
-                self.logger.warning(f"No images found for query '{query}'")
-                return ""
-
-            self.query_image_map[query] = images
-
-        query_images = self.query_image_map[query]
-        return query_images
+        return images
 
     def add_used_affiliate_links(self, used_links: list[UsedLink] = []) -> None:
         """
