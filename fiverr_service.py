@@ -20,9 +20,9 @@ class FiverrService(AffiliateProgram):
         "Mobile Apps",
     ]
 
-    def _generate_gig_ads_widget(self) -> str:
-        """Generate the Fiverr gig ads widget iframe."""
-        return (
+    def get_affiliate_links(self) -> list[AffiliateLink]:
+        """Generate a list of affiliate links for Fiverr services."""
+        gig_ads_widget = (
             f'<iframe src="https://www.fiverr.com/gig_widgets?id=U2FsdGVkX18zdGlcB7h1nvvHf7z82xlOIGyBKcb1AZTgFy8aaVsf/b5zLolbzVBbJUY5runH/U9bFJi+d7P9u9w2BThljiquOOLIswOe5CQ684eEm7QOgCaDnFRIbUK4TO9kl6CQLGZk0fwi5dXaU5ezvre3dULf17JC4cUoTbOMXpyR2U0uNKFqnjPriDjB/cevdhOAD41R5fNncqjHMUnZogHbbHBZ2nuu6mbSoyadxg+g3SXgBq1NotbEUQFPwW8vebTa0Z4cDo1dtW8fF1BwqBeYLnrqFTUYIOS7xm0HPHKABXVfYPeifsqhfIW39uRcasAwaHPNm+p4j3XjYo/uF1OL6/yAfz29fLWRwzK2gipvcjma0FpWh4UgUBXiZVpkhckcSaJ1P1qs+STkj3Urljf2P6sZDrEG7kjM3VF6Uex2oMKxTXng8f32SW+xqbqmYy6haD2GZcxtVvUH4w==&affiliate_id={os.getenv("FIVERR_AFFILIATE_ID")}&strip_google_tagmanager=true" '
             'loading="lazy" data-with-title="true" class="fiverr_nga_frame" frameborder="0" height="350" width="100%" '
             'referrerpolicy="no-referrer-when-downgrade" data-mode="random_gigs" '
@@ -32,17 +32,12 @@ class FiverrService(AffiliateProgram):
             'document.body.appendChild(script);" ></iframe>'
         )
 
-    def get_affiliate_links(self) -> list[AffiliateLink]:
-        """Generate a list of affiliate links for Fiverr services."""
-        categories = ["Freelance"]
-        gig_ads_widget = self._generate_gig_ads_widget()
-
         # Base affiliate link for general Fiverr marketplace
         affiliate_links = [
             AffiliateLink(
                 url=f"https://www.fiverr.com/?utm_source={os.getenv("FIVERR_AFFILIATE_ID")}&utm_medium=cx_affiliate&utm_campaign=_bus-y&afp=&cxd_token=1144512_42729223&show_join=true",
                 product_title=f"{cat} Freelance on Fiverr",
-                categories=categories,
+                categories=[cat, "Freelance"],
                 cta_content=gig_ads_widget,
             )
             for cat in self.FIVERR_CATEGORIES
