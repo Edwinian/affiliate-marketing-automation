@@ -143,6 +143,17 @@ class PinterestService(Channel):
             self.logger.info("No valid pin data to write to CSV.")
             return ""
 
+        video_rows = [row for row in csv_data if row.get("Video URL", None) is not None]
+        image_rows = [row for row in csv_data if row.get("Video URL", None) is None]
+        all_videos = len(video_rows) == len(csv_data)
+        all_images = len(image_rows) == len(csv_data)
+
+        if all([not all_videos, not all_images]):
+            self.logger.warning(
+                "Mix of video and image pins detected, not generating CSV."
+            )
+            return ""
+
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             csv_file_path = (
@@ -153,13 +164,15 @@ class PinterestService(Channel):
             ) as csv_file:
                 fieldnames = [
                     "Title",
-                    "Media URL",
                     "Pinterest board",
                     "Description",
                     "Link",
                     "Publish date",
                     "Keywords",
                 ]
+                fieldnames += (
+                    ["Video URL", "Thumbnail URL"] if all_videos else ["Media URL"]
+                )
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                 writer.writeheader()
                 for row in csv_data:
@@ -170,27 +183,10 @@ class PinterestService(Channel):
             self.logger.error(f"Error writing CSV file: {e}")
             return ""
 
-    def get_create_board(
-        self, category: str, keywords: list[str] = []
-    ) -> dict[str, str]:
-        if not keywords:
-            return {
-                "title": category,
-                "id": self._get_board_id(category),
-            }
-
-        # Assign pin to an existing board named by a keyword, if none, create one for the first keyword and assign pin to it
-        for keyword in keywords:
-            id = self._get_board_id(keyword, get_or_create=False)
-            if id:
-                return {
-                    "title": keyword,
-                    "id": id,
-                }
-
+    def get_create_board(self, category: str) -> dict[str, str]:
         return {
-            "title": keywords[0],
-            "id": self._get_board_id(keywords[0]),
+            "title": category,
+            "id": self._get_board_id(category),
         }
 
     def get_csv_row_data(
@@ -200,6 +196,7 @@ class PinterestService(Channel):
         link: str,
         publish_delay_min: int,
         thumbnail_url: str,
+        video_url: Optional[str] = None,
     ):
         if len(link) > 2000:
             self.logger.warning(f"Link too long (>2000 chars), skipping: {link}")
@@ -222,17 +219,29 @@ class PinterestService(Channel):
             )
         )
         self.query_keywords_map[category] = keywords
-        board = self.get_create_board(category=category, keywords=keywords)
-
-        return {
+        board = self.get_create_board(category=category)
+        base_data = {
             "Title": title,
-            "Media URL": thumbnail_url,
             "Pinterest board": board["title"].title(),
             "Description": description,
             "Link": link,
             "Publish date": publish_date,
             "Keywords": ",".join(keywords),
         }
+
+        if video_url:
+            data = {
+                **base_data,
+                "Video URL": video_url,
+                "Thumbnail URL": thumbnail_url,
+            }
+        else:
+            data = {
+                **base_data,
+                "Media URL": thumbnail_url,
+            }
+
+        return data
 
     def get_bulk_create_from_posts_csv(
         self, posts: List[WordpressPost], limit: Optional[int] = None
@@ -320,6 +329,7 @@ class PinterestService(Channel):
     ) -> list[str]:
         """
         Generates multiple CSV files for bulk pin creation, each containing up to chunk_size rows.
+        Handle image and video pins separately.
         Returns a list of file paths for the generated CSV files.
         """
         if not csv_data:
@@ -327,20 +337,30 @@ class PinterestService(Channel):
             return []
 
         csv_file_paths = []
-        csv_data_chunks = [
-            csv_data[i : i + chunk_size] for i in range(0, len(csv_data), chunk_size)
-        ]
+        video_rows = [row for row in csv_data if row.get("Video URL", None) is not None]
+        image_rows = [row for row in csv_data if row.get("Video URL", None) is None]
 
-        for i, chunk in enumerate(csv_data_chunks):
-            if chunk:
-                csv_file_path = self.generate_csv(
-                    csv_data=chunk, file_suffix=str(i + 1) if i > 0 else None
-                )
-                if csv_file_path:
-                    csv_file_paths.append(csv_file_path)
-                    self.logger.info(f"Generated CSV file {i+1}: {csv_file_path}")
-                else:
-                    self.logger.error(f"Failed to generate CSV file for chunk {i+1}")
+        for csv_data in [video_rows, image_rows]:
+            if not csv_data:
+                continue
+
+            csv_data_chunks = [
+                csv_data[i : i + chunk_size]
+                for i in range(0, len(csv_data), chunk_size)
+            ]
+
+            for i, chunk in enumerate(csv_data_chunks):
+                if chunk:
+                    csv_file_path = self.generate_csv(
+                        csv_data=chunk, file_suffix=str(i + 1) if i > 0 else None
+                    )
+                    if csv_file_path:
+                        csv_file_paths.append(csv_file_path)
+                        self.logger.info(f"Generated CSV file {i+1}: {csv_file_path}")
+                    else:
+                        self.logger.error(
+                            f"Failed to generate CSV file for chunk {i+1}"
+                        )
 
         return csv_file_paths
 
@@ -641,18 +661,14 @@ class PinterestService(Channel):
         image_url: str,
         category: str,
         link: str,
+        video_url: Optional[str] = None,
     ) -> CreateChannelResponse:
         """
         Creates a pin on the specified board with the given image URL, and optional affiliate link.
         Returns the pin ID.
         """
         try:
-            keywords = self.get_keywords_from_model(
-                affiliate_link=AffiliateLink(
-                    url=link, product_title=title, categories=[category]
-                )
-            )
-            board = self.get_create_board(category=category, keywords=keywords)
+            board = self.get_create_board(category=category)
             board_id = board.get("id")
 
             if not board_id:
@@ -661,13 +677,37 @@ class PinterestService(Channel):
 
             description = self.get_pin_description(title=title)
             url = f"{self.base_url}/pins"
-            payload = {
+            base_payload = {
                 "board_id": board_id,
                 "title": title,
                 "description": description,
-                "media_source": {"source_type": "image_url", "url": image_url},
                 "link": link,
             }
+
+            # Determine media type and build payload
+            if video_url:
+                payload = {
+                    **base_payload,
+                    "media_upload": {
+                        "media_type": "video",
+                        "source": {"source_type": "url", "url": video_url},
+                        "title": title,
+                        "description": description,
+                        "thumbnail_url": image_url,
+                    },
+                    # Remove image-specific field
+                    "alt_text": {
+                        "video_pin": {
+                            "alt_text": f"Video showing {title.lower()}"  # Accessibility text
+                        }
+                    },
+                }
+            else:
+                payload = {
+                    **base_payload,
+                    "media_source": {"source_type": "image_url", "url": image_url},
+                }
+
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             data = response.json()
