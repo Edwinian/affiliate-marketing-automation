@@ -507,9 +507,6 @@ class WordpressService(Channel):
             affiliate_link=affiliate_link, category_titles=category_titles
         )
 
-        if affiliate_link.blog_title_prefix:
-            title = f"{affiliate_link.blog_title_prefix}: {title}"
-
         return title
 
     def create(self, affiliate_link: AffiliateLink) -> CreateChannelResponse:

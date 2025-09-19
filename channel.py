@@ -68,6 +68,9 @@ class Channel(ABC):
                 category_titles.pop()
                 return self.get_title(affiliate_link, category_titles=category_titles)
 
+            if affiliate_link.title_prefix:
+                title = f"{affiliate_link.title_prefix}: {title}"
+
             return title
         except Exception as e:
             self.logger.info(f"Error generating title: {e}")
