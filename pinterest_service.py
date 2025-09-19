@@ -105,6 +105,11 @@ class PinterestService(Channel):
                     link=link,
                     publish_delay_min=i * self.PUBLISH_INCREMENT_MIN,
                     thumbnail_url=affiliate_link.thumbnail_url,
+                    video_url=(
+                        affiliate_link.video_urls[0]
+                        if affiliate_link.video_urls
+                        else None
+                    ),
                 )
 
                 if not data_row:

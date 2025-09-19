@@ -31,8 +31,8 @@ class AffiliateLink:
     url: str
     product_title: str
     categories: list[str]
-    video_id: Optional[str] = None
-    video_url: Optional[str] = None
+    video_ids: Optional[list[str]] = []
+    video_urls: Optional[list[str]] = []
     thumbnail_url: Optional[str] = None
     cta_image_url: Optional[str] = None
     cta_btn_text: Optional[str] = None

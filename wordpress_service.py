@@ -726,11 +726,13 @@ class WordpressService(Channel):
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
 
-            if affiliate_link.video_id:
-                content += f'\n\n[video id="{affiliate_link.video_id}"]'
+            if affiliate_link.video_ids:
+                for id in affiliate_link.video_ids:
+                    content += f'\n\n[video id="{id}"]'
 
-            if affiliate_link.video_url:
-                content += f'\n\n<video controls style="max-width: 100%; height: auto; display: block;"><source src="{affiliate_link.video_url}" type="video/mp4">Your browser does not support the video tag.</video>'
+            if affiliate_link.video_urls:
+                for url in affiliate_link.video_urls:
+                    content += f'\n\n<video controls style="max-width: 100%; height: auto; display: block;"><source src="{url}" type="video/mp4">Your browser does not support the video tag.</video>'
 
             cta_content = (
                 (
