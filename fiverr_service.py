@@ -71,6 +71,7 @@ class FiverrService(AffiliateProgram):
                 url=f"https://go.fiverr.com/visit/?bta={os.getenv("FIVERR_AFFILIATE_ID")}&brand={brand['param']}",
                 product_title=brand["title"],
                 categories=[brand["title"]],
+                blog_title_prefix=brand["title"],
                 cta_image_url=brand["cta_image_url"],
             )
             for brand in self.REFERRAL_BRANDS
