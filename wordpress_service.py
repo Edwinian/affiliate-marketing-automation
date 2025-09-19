@@ -599,7 +599,7 @@ class WordpressService(Channel):
             return []
 
     def get_similar_posts(
-        self, title: str, posts: List[WordpressPost] = []
+        self, title: str, posts: List[WordpressPost] = [], limit=5
     ) -> List[WordpressPost]:
         try:
             all_posts = posts or self.get_posts()
@@ -613,7 +613,7 @@ class WordpressService(Channel):
             ]
             no_similar_prompt = "No similar posts found."
             similar_post_ids_str = self.llm_service.generate_text(
-                f"Based on the title '{title}', find posts with similar title from the following list: {posts_with_id_and_title}. Return the IDs of the similar posts as a list separated by comma. If no similar posts are found, return '{no_similar_prompt}'."
+                f"Based on the title '{title}', find posts with similar title from the following list: {posts_with_id_and_title}. Return the IDs of the similar posts as a list separated by comma, sorted by highest similarity. If no similar posts are found, return '{no_similar_prompt}'."
             )
             similar_posts_found = no_similar_prompt not in similar_post_ids_str
 
@@ -635,7 +635,7 @@ class WordpressService(Channel):
                 for post in all_posts
                 if str(post.id) in similar_post_ids_str and post.title != title
             ]
-            return similar_posts
+            return similar_posts[:limit]
         except Exception as e:
             self.logger.error(f"Error finding similar posts: {e}")
             return []
