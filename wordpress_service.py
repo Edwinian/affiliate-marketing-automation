@@ -681,12 +681,10 @@ class WordpressService(Channel):
             self.logger.error(f"Error finding similar tags: {e}")
             return []
 
-    def create_tags(self, title: str) -> List[int]:
+    def create_tags(self, title: str, affiliate_link: AffiliateLink) -> List[int]:
         try:
             tag_ids = []
-            new_tags = self.llm_service.generate_text(
-                f"Create 3 wordpress blog tags based on this title: {title}, return the tags only, separated by commas to be split into a list later on."
-            ).split(",")
+            new_tags = self.get_keywords_from_model(affiliate_link=affiliate_link)
 
             for new_tag in new_tags:
                 self.logger.info(f"Creating tag: {new_tag.strip()}")

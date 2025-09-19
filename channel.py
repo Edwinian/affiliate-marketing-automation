@@ -25,7 +25,7 @@ class Channel(ABC):
             prompt_splits = [
                 f"Give me a list of {limit} SEO friendly keywords about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}"
                 f"The keywords are SEO friendly",
-                f"The keywords do not directly mention the product",
+                f"The keywords do not directly mention the product title: {affiliate_link.product_title}",
                 f"Return the keywords only separated by commas",
             ]
             prompt = ". ".join(prompt_splits)
