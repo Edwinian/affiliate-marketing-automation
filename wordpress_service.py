@@ -725,6 +725,13 @@ class WordpressService(Channel):
             prompt = ". ".join(prompt_splits)
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
+
+            if affiliate_link.video_id:
+                content += f'\n\n[video id="{affiliate_link.video_id}"]'
+
+            if affiliate_link.video_url:
+                content += f'\n\n<video controls style="max-width: 100%; height: auto; display: block;"><source src="{affiliate_link.video_url}" type="video/mp4">Your browser does not support the video tag.</video>'
+
             cta_content = (
                 (
                     f'<a href="{affiliate_link.url}" target="_blank">'
