@@ -27,21 +27,7 @@ class AffiliateProgram(ABC):
         self.media_service = MediaService()
         self.aws_service = AWSService()
         self.pinterest_service = PinterestService()
-
-        self.WORDPRESS_CREDENTIALS = {
-            "API_URL": os.getenv(f"WORDPRESS_API_URL_{self.PROGRAM_KEY}"),
-            "FRONTEND_URL": os.getenv(f"WORDPRESS_FRONTEND_URL_{self.PROGRAM_KEY}"),
-            "ACCESS_TOKEN": os.getenv(f"WORDPRESS_ACCESS_TOKEN_{self.PROGRAM_KEY}"),
-        }
-
-        for key, value in self.WORDPRESS_CREDENTIALS.items():
-            if value is None:
-                self.logger.error(
-                    f"Missing environment variable for {key}: WORDPRESS_{key}_{self.PROGRAM_KEY}"
-                )
-                return
-
-        self.wordpress = WordpressService(credentials=self.WORDPRESS_CREDENTIALS)
+        self.wordpress = self.init_wordpress_service()
 
     @abstractmethod
     def get_affiliate_links(self) -> list[AffiliateLink]:
@@ -49,6 +35,22 @@ class AffiliateProgram(ABC):
         Abstract method to be implemented by subclasses for getting affiliate links from program.
         """
         pass
+
+    def init_wordpress_service(self):
+        credentials = {
+            "API_URL": os.getenv(f"WORDPRESS_API_URL_{self.PROGRAM_KEY}"),
+            "FRONTEND_URL": os.getenv(f"WORDPRESS_FRONTEND_URL_{self.PROGRAM_KEY}"),
+            "ACCESS_TOKEN": os.getenv(f"WORDPRESS_ACCESS_TOKEN_{self.PROGRAM_KEY}"),
+        }
+
+        for key, value in credentials.items():
+            if value is None:
+                self.logger.warning(
+                    f"Missing environment variable {key} for program {self.PROGRAM_KEY}"
+                )
+                return None
+
+        return WordpressService(credentials=credentials)
 
     def get_bulk_create_from_posts_csv(self, limit: int):
         posts = self.wordpress.get_posts()
@@ -62,13 +64,17 @@ class AffiliateProgram(ABC):
         create_links: list[UsedLink] = []
         for link in affiliate_links:
             try:
-                new_post = self.wordpress.create(
-                    affiliate_link=link,
-                )
+                ## Create content for the affiliate link to each channel
+                if self.wordpress:
+                    new_post = self.wordpress.create(
+                        affiliate_link=link,
+                    )
 
-                if new_post:
-                    create_links.append(UsedLink(url=link.url, post_id=new_post.id))
-                    self.logger.info(f"[Post created (ID = {new_post.id}): {link.url}")
+                    if new_post:
+                        create_links.append(UsedLink(url=link.url, post_id=new_post.id))
+                        self.logger.info(
+                            f"[Post created (ID = {new_post.id}): {link.url}"
+                        )
             except Exception as e:
                 self.logger.error(f"Error executing cron for link {link.url}: {e}")
 
