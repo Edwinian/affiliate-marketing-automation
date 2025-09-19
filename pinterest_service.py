@@ -117,7 +117,7 @@ class PinterestService(Channel):
                 csv_data.append(data_row)
             except Exception as e:
                 self.logger.error(
-                    f"Error executing cron for link {affiliate_link.url}: {e}"
+                    f"Error bulk create for link {affiliate_link.url}: {e}"
                 )
                 continue
 
@@ -173,30 +173,24 @@ class PinterestService(Channel):
     def get_create_board(
         self, category: str, keywords: list[str] = []
     ) -> dict[str, str]:
-        board = category
-        board_id = self._get_board_id(board)
-
         if not keywords:
             return {
-                "title": board,
-                "id": board_id,
+                "title": category,
+                "id": self._get_board_id(category),
             }
 
         # Assign pin to an existing board named by a keyword, if none, create one for the first keyword and assign pin to it
         for keyword in keywords:
             id = self._get_board_id(keyword, get_or_create=False)
             if id:
-                board = keyword
-                board_id = id
-                break
-
-        if board == category:
-            board = keywords[0]
-            board_id = self._get_board_id(board)
+                return {
+                    "title": keyword,
+                    "id": id,
+                }
 
         return {
-            "title": board,
-            "id": board_id,
+            "title": keywords[0],
+            "id": self._get_board_id(keywords[0]),
         }
 
     def get_csv_row_data(
@@ -220,7 +214,6 @@ class PinterestService(Channel):
             + timedelta(minutes=self.ALL_PUBLISH_DELAY_MIN + publish_delay_min)
         ).strftime("%Y-%m-%d %H:%M:%S")
         description = self.get_pin_description(title=title)
-
         keywords = self.query_keywords_map.get(
             category, []
         ) or self.get_keywords_from_model(
@@ -486,7 +479,7 @@ class PinterestService(Channel):
                 )
                 return False
         except requests.RequestException as e:
-            print(f"Error checking token: {e}")
+            self.logger.error(f"Error checking token: {e}")
             return False
 
     def refresh_access_token(self) -> bool:
@@ -557,7 +550,7 @@ class PinterestService(Channel):
         }
         return f"{base_url}?{urlencode(params)}", state
 
-    def _get_board_id(self, name: str, get_or_create: bool = True) -> str:
+    def _get_board_id(self, name: str, get_or_create: bool = True) -> Optional[str]:
         try:
             url = f"{self.base_url}/boards"
             response = requests.get(url, headers=self.headers)
@@ -573,7 +566,7 @@ class PinterestService(Channel):
                 self.logger.info(f"No board found for the name '{name}', creating one.")
                 return self.create_board(name)
 
-            return board["id"]
+            return board["id"] if board else None
         except requests.RequestException as e:
             self.logger.error(f"Error fetching boards: {e}")
             return ""
@@ -691,22 +684,56 @@ class PinterestService(Channel):
     def get_pin_description(self, title: str) -> str:
         """
         Generates an SEO-friendly pin description using LlmService.
+
+        Args:
+            title (str): Title to generate description for
+
+        Returns:
+            str: Description truncated to Pinterest's 500-character limit
         """
-        disclosure = f"\n#affiliate {self.DISCLOSURE}"
-        limit = 200  # Pinterest limit
-        prompt = f"Create a Pinterest description in no more than {limit - len(disclosure)} characters (including spaces) for this title that is SEO friendly, time-agnostic, suitable for affiliate marketing, and includes a strong call to action, respond the description only without mentioning the length limit: '{title}'"
+        # Pinterest's actual limit is 500 characters
+        MAX_LENGTH = 500
+        DISCLOSURE = f"\n#affiliate {self.DISCLOSURE}"
+        DISCLOSURE_LENGTH = len(DISCLOSURE)
+
+        # Calculate available space for main content
+        available_length = MAX_LENGTH - DISCLOSURE_LENGTH
+
+        prompt = (
+            f"Create a Pinterest description in no more than {available_length} characters "
+            f"(including spaces) for this title that is SEO friendly, time-agnostic, "
+            f"suitable for affiliate marketing, and includes a strong call to action. "
+            f"Respond with the description only, without mentioning the length limit: '{title}'"
+        )
 
         try:
-            description = self.llm_service.generate_text(
-                prompt
-            ).strip()  # Remove any trailing newlines from LLM output
-            description = f"{description}\n#affiliate {self.DISCLOSURE}"  # Ensure disclosure is on a new line
-            return description[:limit]  # Truncate to Pinterest's 500-character limit
+            generated_description = self.llm_service.generate_text(prompt).strip()
+
+            # Ensure space for the disclosure
+            if len(generated_description) > available_length:
+                generated_description = generated_description[
+                    :available_length
+                ].rstrip()
+
+            # Combine and truncate to final limit if needed
+            full_description = f"{generated_description}{DISCLOSURE}"
+            final_description = full_description[:MAX_LENGTH]
+
+            self.logger.info(
+                f"Generated description length: {len(final_description)} chars"
+            )
+            return final_description
+
         except Exception as e:
-            self.logger.error(f"Error generating description: {e}")
-            return f"Discover the latest trends in {title.split('#')[0].strip()} to inspire your next purchase!\n#affiliate {self.DISCLOSURE}"[
-                :limit
-            ]
+            self.logger.error(f"Error generating description for '{title}': {e}")
+
+            # Fallback description
+            fallback = (
+                f"Discover the latest trends in {title.split('#')[0].strip()} "
+                f"to inspire your next purchase! #affiliate {self.DISCLOSURE}"
+            )
+
+            return fallback[:MAX_LENGTH]
 
 
 if __name__ == "__main__":
@@ -718,63 +745,63 @@ if __name__ == "__main__":
     links = [
         AffiliateLink(
             categories=["fall nails"],
-            url="https://amzn.to/4nsjYS0",
-            product_title="BTArtbox Press On Nails Short - Poison Potion, Dark Purple Almond Halloween Press On Nails with Glue for Women, Fall Opaque Soft Gel Glue On Nails in 16 Sizes - 32 Stick On Nails Kit",
-            thumbnail_url="https://m.media-amazon.com/images/I/713dLYU1pjL._SL1500_.jpg",
+            url="https://amzn.to/3Ikx9pu",
+            product_title="24Pcs Fall Press on Nails Medium Almond Thanksgiving Fake Nails Autumn Gilded Pumpkin Daisy Full Cover Fall Leaves False Nails Reusable Autumn Acrylic Nail Glue on Nail for Women Nail Decoration",
+            thumbnail_url="https://m.media-amazon.com/images/I/81Np-H6JstL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["fall nails"],
-            url="https://amzn.to/3K7rraX",
-            product_title="KQueenest Dark Red Press on Nails Cat Eye, Burgundy Glitter Press on Nails Almond Medium, Sparkly Shiny Fake Nails Set, Cute Bling Glue on Nails Medium Length for Women Holiday, Gothic Design, 30 Pcs",
-            thumbnail_url="https://m.media-amazon.com/images/I/61acQ-S1sdL._SL1080_.jpg",
+            url="https://amzn.to/4moXhgO",
+            product_title="BTArtbox Press On Nails Short - Lamp-Curable Almond Press On Nails with Glue for Women, Semi-Transparent Soft Gel Glue On Nails in 16 Sizes - 32 Stick On Nails Kit, Spill Tea",
+            thumbnail_url="https://m.media-amazon.com/images/I/71ntp6kqBhL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["fall outfits"],
-            url="https://amzn.to/4nDM5ht",
-            product_title="IDEALSANXUN Womens High Waist Plaid Skirt Bodycon Pencil Wool Mini Skirts",
-            thumbnail_url="https://m.media-amazon.com/images/I/71SOOBWBRFL._AC_SY879_.jpg",
+            url="https://amzn.to/46L3nmU",
+            product_title="Trendy Queen Women's 2 Piece Matching Lounge Set Long Sleeve Slightly Crop Top Wide Leg Pants Casual Sweatsuit",
+            thumbnail_url="https://m.media-amazon.com/images/I/61icMXLgUGL._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["fall outfits"],
-            url="https://amzn.to/4nsk2Be",
-            product_title="Zeagoo Flannels for Women Cropped Shacket Jacket Fashion Plaid Button Down Shirt 2025 Fall Coat Tops",
-            thumbnail_url="https://m.media-amazon.com/images/I/81Ecg7atctL._AC_SY879_.jpg",
+            url="https://amzn.to/46e44Fn",
+            product_title="PRETTYGARDEN Womens Oversized Cardigan Sweaters 2025 Fall Long Lantern Sleeve Knit Open Front Lightweight Sweater",
+            thumbnail_url="https://m.media-amazon.com/images/I/81woqSb95fL._AC_SX679_.jpg",
         ),
         AffiliateLink(
             categories=["winter hair braid"],
-            url="https://amzn.to/46kWGqo",
-            product_title="DIGUAN Kinky Synthetic Hair Braided Headband Wide Hairpiece Women Girl Beauty accessory (8-Natural Black)",
-            thumbnail_url="https://m.media-amazon.com/images/I/71hRtXjytpL._SL1500_.jpg",
+            url="https://amzn.to/46cRSVl",
+            product_title="Long Braid Ponytail Extension with Hair Tie DIY Wrap Around Synthetic Hairpiece Natural Soft Fluffy Style for Women Daily Wear (34 Inch Brown Black)",
+            thumbnail_url="https://m.media-amazon.com/images/I/71V54DDVKGL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["winter hair braid"],
-            url="https://amzn.to/468YTqf",
-            product_title="Braiding Hair Pre Stretched, 26 Inch 8 Pack Black Prestretched Braiding Hair For Women Braid Hair, Long Professional Synthetic Hair For Knotless Boho Crochet Braids,Yaki Straight Texture(26in,1b,8pc）",
-            thumbnail_url="https://m.media-amazon.com/images/I/71U35Idun6L._SL1500_.jpg",
+            url="https://amzn.to/3Kvs2TO",
+            product_title="TOECWEGR Braided Headband WithTooth Wide Braid Messy Hair Hoop WomenFashion Hair Accessories (Dark gray light brown)",
+            thumbnail_url="https://m.media-amazon.com/images/I/71Un0ymBrJL._SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["winter fashion inspo"],
-            url="https://amzn.to/46nTBWr",
-            product_title="YKR Womens Chunky Knit Sweater Vest Sleeveless Button Down Cropped Cardigan Casual Knitted Crochet Vest with Pockets",
-            thumbnail_url="https://m.media-amazon.com/images/I/71FxZMQSyML._AC_SY741_.jpg",
+            url="https://amzn.to/3VpEmaz",
+            product_title="Mafulus Women's Oversized Crewneck Sweater Batwing Puff Long Sleeve Cable Slouchy Pullover Jumper Tops",
+            thumbnail_url="https://m.media-amazon.com/images/I/71yo9VMFWZL._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["winter fashion inspo"],
-            url="https://amzn.to/47LR8Yv",
-            product_title="Beyove Boho Tops for Women Long Sleeve V Neck Fall Shirts Bohemian Fashion Hippie Western Dressy Casual Blouses",
-            thumbnail_url="https://m.media-amazon.com/images/I/61-cZ+I7Y9L._AC_SY741_.jpg",
+            url="https://amzn.to/3VV31Uz",
+            product_title="SHEWIN Womens Waffle Knit Plaid Shacket Boyfriend Button Down Shirt Jacket Loose Long Sleeve Tops",
+            thumbnail_url="https://m.media-amazon.com/images/I/61JQ21yzlWL._AC_SY741_.jpg",
         ),
         AffiliateLink(
             categories=["future wedding plans"],
-            url="https://amzn.to/4mnCHxn",
-            product_title="AW BRIDAL Best Engagement Gifts for Fiance Her Wedding Gifts For Bride To Be∣ Future Mrs Leather Wedding Planning Book And Organizer Engagement Journal Notebook Budget Binder, 140 Pages, Rose Gold",
-            thumbnail_url="https://m.media-amazon.com/images/I/81RQqlSdbmL._AC_SL1500_.jpg",
+            url="https://amzn.to/4ng5s08",
+            product_title="Wedding Planner Book and Organizer-176 Pages Bridal Wedding Planning Book with Sticker Checklists and Calendars for Bride To Be, Unique Engagement Gifts for Newly Engaged Couples",
+            thumbnail_url="https://m.media-amazon.com/images/I/71f-sbjLSeL._AC_SL1500_.jpg",
         ),
         AffiliateLink(
             categories=["future wedding plans"],
-            url="https://amzn.to/3IgLcfK",
-            product_title="Shintrend Wedding Planner for Bride: Wedding Planning Book and Organizer for Newly Engaged Couples 176 Pages Bridal Wedding Organizer Notebook with Sticker Checklists & Calendars for Bride To Be",
-            thumbnail_url="https://m.media-amazon.com/images/I/61eUQhWoNrL._AC_SL1500_.jpg",
+            url="https://amzn.to/4nHKR4Q",
+            product_title="Wedding Planner Book and Organizer for Bride - Perfect Engagement Gift for Newly Engaged - Future Mrs Wedding Planning Binder with Rose Gold Accents, Tabs, Checklists - Bride to Be Gift",
+            thumbnail_url="https://m.media-amazon.com/images/I/51T1D7Gp9+L._AC_SL1080_.jpg",
         ),
     ]
     result = service.get_bulk_create_from_affiliate_links_csv(

@@ -490,14 +490,32 @@ class WordpressService(Channel):
             self.logger.error(f"Error creating navbar: {e}")
             return '<nav class="dynamic-nav"><ul><li>Error generating navbar</li></ul></nav>'
 
-    def create(
-        self, title: str, affiliate_link: AffiliateLink
-    ) -> CreateChannelResponse:
+    def get_wordpress_title(self, affiliate_link: AffiliateLink) -> str:
+        all_posts = self.get_posts()
+        # Titles of posts in categories matching the affiliate link's categories
+        category_titles = [
+            post.title
+            for post in all_posts
+            if post.categories
+            and any(
+                link_cat
+                for link_cat in affiliate_link.categories
+                if link_cat in [cat.name for cat in post.categories]
+            )
+        ]
+        title = self.get_title(
+            affiliate_link=affiliate_link, category_titles=category_titles
+        )
+        return title
+
+    def create(self, affiliate_link: AffiliateLink) -> CreateChannelResponse:
         try:
             paragraph_count = 3
+            # Images for body paragraphs and feature image
             image_urls = self.media_service.get_image_urls(
                 query=affiliate_link.categories[0], limit=paragraph_count + 1
             )
+            title = self.get_wordpress_title(affiliate_link)
             content = self.get_post_content(
                 title=title,
                 affiliate_link=affiliate_link,

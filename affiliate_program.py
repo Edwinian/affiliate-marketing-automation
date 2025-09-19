@@ -60,37 +60,15 @@ class AffiliateProgram(ABC):
         self, affiliate_links: list[AffiliateLink]
     ) -> list[UsedLink]:
         create_links: list[UsedLink] = []
-        all_posts = self.wordpress.get_posts()
-
         for link in affiliate_links:
             try:
-                category_titles = [
-                    post.title
-                    for post in all_posts
-                    if post.categories
-                    and any(
-                        link_cat
-                        for link_cat in link.categories
-                        if link_cat in [cat.name for cat in post.categories]
-                    )
-                ]
-                title = self.wordpress.get_title(
-                    affiliate_link=link, category_titles=category_titles
+                new_post = self.wordpress.create(
+                    affiliate_link=link,
                 )
 
-                try:
-                    new_post = self.wordpress.create(
-                        title=title,
-                        affiliate_link=link,
-                    )
-
-                    if new_post:
-                        create_links.append(UsedLink(url=link.url, post_id=new_post.id))
-                        self.logger.info(
-                            f"[Post created (ID = {new_post.id}): {link.url}"
-                        )
-                except Exception as e:
-                    self.logger.error(f"Error executing cron for Wordpress: {e}")
+                if new_post:
+                    create_links.append(UsedLink(url=link.url, post_id=new_post.id))
+                    self.logger.info(f"[Post created (ID = {new_post.id}): {link.url}")
             except Exception as e:
                 self.logger.error(f"Error executing cron for link {link.url}: {e}")
 

@@ -14,12 +14,16 @@ class FiverrService(AffiliateProgram):
         },
         {
             "title": "Digital Marketing",
-            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816574",
+            "cta_image_url": None,
         },
         {"title": "Video & Animation", "cta_image_url": None},
         {"title": "Music & Audio", "cta_image_url": None},
-        {"title": "Business", "cta_image_url": None},
+        # {"title": "Business", "cta_image_url": None},
         {"title": "Finance", "cta_image_url": None},
+        {
+            "title": "Graphics & Design",
+            "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816574",
+        },
         {"title": "Photography", "cta_image_url": None},
         {"title": "Consulting", "cta_image_url": None},
         {
@@ -29,22 +33,22 @@ class FiverrService(AffiliateProgram):
     ]
     REFERRAL_BRANDS = [
         {
-            "key": "fiverrmarketplace",
+            "param": "fiverrmarketplace",
             "title": "Fiverr Marketplace",
             "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816599",
         },
         {
-            "key": "fp",
+            "param": "fp",
             "title": "Fiverr Pro",
             "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816713",
         },
         {
-            "key": "logomaker",
+            "param": "logomaker",
             "title": "Logo Maker",
             "cta_image_url": "https://fiverr.ck-cdn.com/tn/serve/?cid=42816561",
         },
         {
-            "key": "fiverraffiliates",
+            "param": "fiverraffiliates",
             "title": "Fiverr Sub Affiliates",
             "cta_image_url": "https://edwinchan6.wordpress.com/wp-content/uploads/2025/09/fiverr-subaffiliates-cta-banner.jpg",
         },
@@ -52,7 +56,6 @@ class FiverrService(AffiliateProgram):
 
     def get_affiliate_links(self) -> list[AffiliateLink]:
         """Generate a list of affiliate links for Fiverr services."""
-        # Base affiliate link for general Fiverr marketplace
         affiliate_links = [
             AffiliateLink(
                 url=f"https://www.fiverr.com/?utm_source={os.getenv("FIVERR_AFFILIATE_ID")}&utm_medium=cx_affiliate&utm_campaign=_bus-y&afp=&cxd_token={os.getenv("FIVERR_AFFILIATE_ID")}_42729223&show_join=true",
@@ -65,7 +68,7 @@ class FiverrService(AffiliateProgram):
         ]
         referral_links = [
             AffiliateLink(
-                url=f"https://go.fiverr.com/visit/?bta={os.getenv("FIVERR_AFFILIATE_ID")}&brand={brand['key']}",
+                url=f"https://go.fiverr.com/visit/?bta={os.getenv("FIVERR_AFFILIATE_ID")}&brand={brand['param']}",
                 product_title=brand["title"],
                 categories=[brand["title"]],
                 cta_image_url=brand["cta_image_url"],

@@ -12,6 +12,7 @@ class MediaService:
         self.logger = LoggerService(name=self.__class__.__name__)
         self.aws_service = AWSService()
         self.query_image_map: dict[str, list[str]] = {}
+        self.used_images: list[str] = []
 
     def fetch_image_urls(
         self,
@@ -89,6 +90,7 @@ class MediaService:
         """
         query = query.lower()
         images = self.query_image_map.get(query, [])
+        images = [img for img in images if img not in self.used_images]
 
         # Fetch new images if cache is empty or insufficient
         if len(images) < limit:
@@ -101,8 +103,14 @@ class MediaService:
 
         if not images:
             self.logger.warning(f"No images found for query '{query}'")
+            return images
 
-        return random.shuffle(images)
+        # Each time 80 images are fetched (per page limit), shuffle and return the first limit number of images
+        random.shuffle(images)
+        drawn_images = images[:limit]
+        self.used_images += drawn_images
+
+        return drawn_images
 
     def add_used_affiliate_links(self, used_links: list[UsedLink] = []) -> None:
         """

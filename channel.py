@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from all_types import AffiliateLink, CreateChannelResponse, WordpressPost
+from all_types import AffiliateLink, CreateChannelResponse
 from enums import LlmErrorPrompt
 from llm_service import LlmService
 from logger_service import LoggerService
@@ -9,7 +9,7 @@ from media_service import MediaService
 
 
 class Channel(ABC):
-    DISCLOSURE = "Disclosure: We may earn a commission at no extra cost to you if you make a purchase through any links included. This helps support our work in creating more content. Thank you for your support!"
+    DISCLOSURE = "Disclosure: We may earn a commission at no extra cost to you if you make a purchase through any links here. This helps support us in creating more content for you. Thank you for your support!"
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
