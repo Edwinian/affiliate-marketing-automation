@@ -2,7 +2,7 @@ from amazon_paapi import models, AmazonApi
 
 from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
-from enums import ProgramKey
+from enums import ProgramBrand
 
 from common import os, load_dotenv
 
@@ -16,7 +16,9 @@ class AmazonService(AffiliateProgram):
             country=os.getenv("AMAZON_COUNTRY"),
         )
         self.niche = niche
-        self.PROGRAM_KEY = f"{ProgramKey.AMAZON}_{self.niche.upper().replace(' ', '_')}"
+        self.PROGRAM_KEY = (
+            f"{ProgramBrand.AMAZON}_{self.niche.upper().replace(' ', '_')}"
+        )
         super().__init__()
 
     def get_affiliate_links(self) -> list[AffiliateLink]:

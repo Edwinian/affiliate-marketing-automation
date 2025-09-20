@@ -1,12 +1,12 @@
 from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
-from enums import ProgramKey
+from enums import ProgramBrand
 from common import os, load_dotenv
 
 
 class FiverrService(AffiliateProgram):
     IS_FIXED_LINK = True
-    PROGRAM_KEY = ProgramKey.FIVERR
+    PROGRAM_KEY = ProgramBrand.FIVERR
     FIVERR_CATEGORIES = [
         {
             "title": "Programming & Tech",

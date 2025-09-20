@@ -216,9 +216,7 @@ class PinterestService(Channel):
             + timedelta(minutes=self.ALL_PUBLISH_DELAY_MIN + publish_delay_min)
         ).strftime("%Y-%m-%d %H:%M:%S")
         description = self.get_pin_description(title=title)
-        keywords = self.query_keywords_map.get(
-            category, []
-        ) or self.get_keywords_from_model(
+        keywords = self.query_keywords_map.get(category, []) or self.get_keywords(
             affiliate_link=AffiliateLink(
                 url=link, product_title=title, categories=[category]
             )

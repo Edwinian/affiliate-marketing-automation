@@ -2,7 +2,7 @@ import time
 from typing import Optional
 from affiliate_program import AffiliateProgram
 from all_types import AffiliateLink
-from enums import ProgramKey
+from enums import ProgramBrand
 from fiverr_service import FiverrService
 from logger_service import LoggerService
 from vpn_service import VPNService
@@ -37,7 +37,7 @@ def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = N
 # Local test
 if __name__ == "__main__":
     custom_links_map: dict[str, list[AffiliateLink]] = {
-        f"{ProgramKey.AMAZON}_BEAUTY": [
+        f"{ProgramBrand.AMAZON}_BEAUTY": [
             # AffiliateLink(
             #     url="https://amzn.to/46d5C1d",
             #     product_title="Kasa Smart Plug HS103P4, Smart Home Wi-Fi Outlet Works with Alexa, Echo, Google Home & IFTTT, No Hub Required, Remote Control, 15 Amp, UL Certified, 4-Pack, White",

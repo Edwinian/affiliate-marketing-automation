@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from all_types import AffiliateLink, CreateChannelResponse
-from enums import LlmErrorPrompt
+from enums import LlmErrorPrompt, ProgramBrand
 from llm_service import LlmService
 from logger_service import LoggerService
 from media_service import MediaService
@@ -10,27 +10,46 @@ from media_service import MediaService
 
 class Channel(ABC):
     DISCLOSURE = "Disclosure: We earn a commission at no extra cost to you if you make a purchase through links here. This helps support us in creating more content for you. Thank you for your support!"
+    FORBIDDEN_KEYWORDS = [brand.value for brand in ProgramBrand]
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)
         self.llm_service = LlmService()
         self.media_service = MediaService()
 
-    def get_keywords_from_model(
+    def get_keywords(
         self,
         affiliate_link: AffiliateLink,
         limit: int = 5,
     ) -> list[str]:
+        def _remove_forbidden_keywords(keywords: list[str]) -> list[str]:
+            """
+            Remove keywords that contain forbidden brand names as they may violate affiliate program policies
+            """
+            clean_keywords = []
+
+            for word in keywords:
+                if all(
+                    forbidden_word.lower() not in word.lower()
+                    for forbidden_word in self.FORBIDDEN_KEYWORDS
+                ):
+                    clean_keywords.append(word)
+
+            return clean_keywords
+
         try:
             prompt_splits = [
-                f"Give me a list of {limit} SEO friendly keywords about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}"
+                f"Give me a list of SEO friendly keywords about the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}",
+                f"The keywords do not contain brand names such as {', '.join(self.FORBIDDEN_KEYWORDS)}",
                 f"The keywords are SEO friendly",
                 f"The keywords do not directly mention the product title: {affiliate_link.product_title}",
+                f"Sort the keywords by highest relevance to the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}",
                 f"Return the keywords only separated by commas",
             ]
             prompt = ". ".join(prompt_splits)
             keywords_text = self.llm_service.generate_text(prompt)
             keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
+            keywords = _remove_forbidden_keywords(keywords)
             return keywords[:limit]
         except Exception as e:
             self.logger.error(f"Error generating keywords from model: {e}")

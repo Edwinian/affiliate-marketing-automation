@@ -25,10 +25,10 @@ class StrEnum(str, Enum):
             raise ValueError(f"Invalid value {v} for {cls.__name__}")
 
 
-class ProgramKey(StrEnum):
-    AMAZON = "AMAZON"
-    VPN = "VPN"
-    FIVERR = "FIVERR"
+class ProgramBrand(StrEnum):
+    AMAZON = "amazon"
+    NORD = "nord"
+    FIVERR = "fiverr"
 
 
 class LlmErrorPrompt(StrEnum):

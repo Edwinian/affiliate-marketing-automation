@@ -684,7 +684,7 @@ class WordpressService(Channel):
     def create_tags(self, title: str, affiliate_link: AffiliateLink) -> List[int]:
         try:
             tag_ids = []
-            new_tags = self.get_keywords_from_model(affiliate_link=affiliate_link)
+            new_tags = self.get_keywords(affiliate_link=affiliate_link)
 
             for new_tag in new_tags:
                 self.logger.info(f"Creating tag: {new_tag.strip()}")
