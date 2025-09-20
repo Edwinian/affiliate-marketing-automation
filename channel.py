@@ -63,7 +63,7 @@ class Channel(ABC):
     ) -> str:
         try:
             prompt_splits = [
-                f"Give me one title about {affiliate_link.categories[0]} and {affiliate_link.product_title}",
+                f"Give me one title about {affiliate_link.categories[0]} and an application of {affiliate_link.product_title}",
                 f"The title is SEO friendly",
                 f"The title promotes {affiliate_link.product_title} without directly mentioning it",
                 f"The title separates each word with space",
