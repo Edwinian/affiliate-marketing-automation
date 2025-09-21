@@ -68,7 +68,7 @@ class FiverrService(AffiliateProgram):
         affiliate_links = [
             AffiliateLink(
                 url=f"https://www.fiverr.com/?utm_source={os.getenv("FIVERR_AFFILIATE_ID")}&utm_medium=cx_affiliate&utm_campaign=_bus-y&afp=&cxd_token={os.getenv("FIVERR_AFFILIATE_ID")}_42729223&show_join=true",
-                product_title=cat["title"],
+                product_title=f"{cat["title"]} Gig Jobs",
                 categories=[cat["title"], "Freelance"],
                 cta_image_url=cat.get("cta_image_url", None),
                 cta_btn_text="Explore Gigs on Fiverr",
