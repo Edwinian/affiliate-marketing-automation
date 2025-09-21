@@ -66,7 +66,7 @@ class Channel(ABC):
             f"an application of {affiliate_link.product_title}",
             f"a potential consequence of not using {affiliate_link.product_title}",
         ]
-        focus_idx = random.randint(0, 1)
+        focus_idx = random.randint(0, len(focuses) - 1)
         try:
             prompt_splits = [
                 f"Give me one title about {affiliate_link.categories[0]} and {focuses[focus_idx]}",
