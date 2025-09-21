@@ -1,3 +1,4 @@
+import random
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -61,9 +62,14 @@ class Channel(ABC):
         category_titles: list[str] = [],
         limit: Optional[int] = None,
     ) -> str:
+        focuses = [
+            f"an application of {affiliate_link.product_title}",
+            f"a potential consequence of not using {affiliate_link.product_title}",
+        ]
+        focus_idx = random.randint(0, 1)
         try:
             prompt_splits = [
-                f"Give me one title about {affiliate_link.categories[0]} and an application of {affiliate_link.product_title}",
+                f"Give me one title about {affiliate_link.categories[0]} and {focuses[focus_idx]}",
                 f"The title is SEO friendly",
                 f"The title promotes {affiliate_link.product_title} without directly mentioning it",
                 f"The title separates each word with space",
@@ -72,7 +78,7 @@ class Channel(ABC):
 
             if category_titles:
                 prompt_splits.append(
-                    f"The title relates to but should not overlap with existing titles: {', '.join(category_titles)}"
+                    f"The message of the title relates to but should not overlap with that of existing titles: {', '.join(category_titles)}"
                 )
 
             if limit:
