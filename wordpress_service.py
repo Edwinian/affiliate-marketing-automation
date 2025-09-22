@@ -849,9 +849,9 @@ class WordpressService(Channel):
 
 if __name__ == "__main__":
     credentials = {
-        "API_URL": "https://public-api.wordpress.com/wp/v2/sites/edwinchan6.wordpress.com",
-        "ACCESS_TOKEN": "61&NhCPk1&^dKUCiX8Fd4$HAXs^GTd4I$!u0qU8QG8fC4S5Fx$ElpFH8Z0nKmtoO",
-        "FRONTEND_URL": "https://edwinchan6.wordpress.com",
+        "API_URL": os.getenv("WORDPRESS_API_URL_FIVERR"),
+        "ACCESS_TOKEN": os.getenv("WORDPRESS_ACCESS_TOKEN_FIVERR"),
+        "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL_FIVERR"),
     }
     service = WordpressService(credentials=credentials)
     new_menu_ids = service.get_media(9)
