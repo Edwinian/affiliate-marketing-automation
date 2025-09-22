@@ -20,12 +20,13 @@ class MediaService:
         max_retries=5,
         initial_delay=2.0,
         max_delay=30.0,
-        retry_on_empty=True,
         retry_on_exceptions=(
             ValueError,
             ConnectionError,
             HTTPError,
+            requests.RequestException,
         ),
+        error_response=[],
     )
     def fetch_image_urls(
         self,
@@ -82,7 +83,6 @@ class MediaService:
             return fetched_image_urls
         except requests.RequestException as e:
             self.logger.error(f"Pexels API error for query '{query}': {str(e)}")
-            return fetched_image_urls
 
     def get_image_urls(
         self,

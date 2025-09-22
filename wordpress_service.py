@@ -294,7 +294,6 @@ class WordpressService(Channel):
         max_retries=5,
         initial_delay=2.0,
         max_delay=30.0,
-        retry_on_empty=True,
         retry_on_exceptions=(
             ValueError,
             ConnectionError,
@@ -524,6 +523,20 @@ class WordpressService(Channel):
 
         return title
 
+    def get_or_create_categories(self, affiliate_link: AffiliateLink) -> List[int]:
+        category_ids = []
+
+        for cat in affiliate_link.categories:
+            cat_ids = self.get_category_ids([cat])
+
+            if not cat_ids:
+                cat_id = self.create_category(name=cat)
+                cat_ids.append(cat_id)
+
+            category_ids.append(cat_ids[0])
+
+        return category_ids
+
     def create(self, affiliate_link: AffiliateLink) -> CreateChannelResponse:
         try:
             paragraph_count = 3
@@ -548,9 +561,7 @@ class WordpressService(Channel):
                 paragraph_count=paragraph_count,
             )
             featured_media_id = self.upload_feature_image(image_urls[-1])
-            category_ids = self.get_category_ids(affiliate_link.categories) or [
-                self.create_category(name) for name in affiliate_link.categories
-            ]
+            category_ids = self.get_or_create_categories(affiliate_link)
             tag_ids = self.get_similar_tag_ids(title) or self.create_tags(
                 affiliate_link
             )
