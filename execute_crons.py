@@ -8,9 +8,11 @@ from logger_service import LoggerService
 from vpn_service import VPNService
 
 
-def execute_crons(custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None):
+def execute_crons(
+    custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None,
+):
     logger = LoggerService(name="execute_crons")
-    affiliate_programs: list[AffiliateProgram] = [VPNService(), FiverrService()]
+    affiliate_programs: list[AffiliateProgram] = [VPNService()]
 
     for program in affiliate_programs:
         name = program.__class__.__name__

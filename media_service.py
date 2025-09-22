@@ -1,10 +1,12 @@
 import random
 from typing import Optional
+from urllib.error import HTTPError
 from all_types import AffiliateLink, UsedLink
 from aws_service import AWSService
 from logger_service import LoggerService
 
 from common import os, load_dotenv, requests
+from utils import get_with_retry
 
 
 class MediaService:
@@ -14,6 +16,17 @@ class MediaService:
         self.query_image_map: dict[str, list[str]] = {}
         self.used_images: list[str] = []
 
+    @get_with_retry(
+        max_retries=3,
+        initial_delay=2.0,
+        max_delay=30.0,
+        retry_on_empty=True,  # Retry on empty image lists
+        retry_on_exceptions=(
+            ValueError,
+            ConnectionError,
+            HTTPError,
+        ),  # Specific exceptions
+    )
     def fetch_image_urls(
         self,
         limit: int = 1,
@@ -102,7 +115,7 @@ class MediaService:
             self.query_image_map[query] = images
 
         if not images:
-            self.logger.warning(f"No images found for query '{query}'")
+            self.logger.warning(f"No images found for query '{query}', retrying...")
             return images
 
         # Each time 80 images are fetched (per page limit), shuffle and return the first limit number of images

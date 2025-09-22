@@ -369,6 +369,7 @@ class WordpressService(Channel):
             posts = []
             params = {
                 "_embed": "wp:term",
+                "status": "publish,future,draft,pending,private",  # Get all post statuses
             }
             page_posts = self._get_data(resource="posts", more_params=params)
 
@@ -514,7 +515,9 @@ class WordpressService(Channel):
             paragraph_count = 3
             # Images for body paragraphs and feature image
             image_urls = self.media_service.get_image_urls(
-                query=affiliate_link.categories[0], limit=paragraph_count + 1
+                query=affiliate_link.categories[0],
+                limit=paragraph_count + 1,
+                size="landscape",
             )
             title = self.get_wordpress_title(affiliate_link)
             content = self.get_post_content(
@@ -527,16 +530,20 @@ class WordpressService(Channel):
             category_ids = self.get_category_ids(affiliate_link.categories) or [
                 self.create_category(name) for name in affiliate_link.categories
             ]
-            tag_ids = self.get_similar_tag_ids(title) or self.create_tags(title)
+            tag_ids = self.get_similar_tag_ids(title) or self.create_tags(
+                affiliate_link
+            )
 
             url = f"{self.api_url}/posts"
+            # Author is the display name of the user
             payload = {
                 "title": title,
                 "content": content,
-                "status": "publish",
+                "status": "pending",
                 "featured_media": featured_media_id,
                 "categories": category_ids,
                 "tags": tag_ids,
+                "excerpt": title,  # Avoid auto comments by WP
             }
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
@@ -681,7 +688,7 @@ class WordpressService(Channel):
             self.logger.error(f"Error finding similar tags: {e}")
             return []
 
-    def create_tags(self, title: str, affiliate_link: AffiliateLink) -> List[int]:
+    def create_tags(self, affiliate_link: AffiliateLink) -> List[int]:
         try:
             tag_ids = []
             new_tags = self.get_keywords(affiliate_link=affiliate_link)
@@ -698,7 +705,7 @@ class WordpressService(Channel):
             return tag_ids
         except requests.RequestException as e:
             self.logger.error(
-                f"Error creating tag {title}: {e}, Response: {e.response.text if e.response else 'No response'}"
+                f"Error creating tag {affiliate_link.product_title}: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
             return []
 
@@ -735,17 +742,12 @@ class WordpressService(Channel):
                 for url in affiliate_link.video_urls:
                     content += f'\n\n<video controls style="max-width: 100%; height: auto; display: block;"><source src="{url}" type="video/mp4">Your browser does not support the video tag.</video>'
 
-            cta_content = (
-                (
-                    f'<a href="{affiliate_link.url}" target="_blank">'
-                    f'<img src="{affiliate_link.cta_image_url}" alt="{affiliate_link.product_title} CTA" style="max-width: 100%; height: auto; display: block;">'
-                    f"</a>"
-                )
-                if affiliate_link.cta_image_url
-                else f'<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">{affiliate_link.cta_btn_text or 'Shop Now'}</a>'
-            )
-            content += f"\n\n{cta_content}"
+            if affiliate_link.cta_image_url:
+                cta_content = f'\n\n<a href="{affiliate_link.url}" target="_blank" rel="nofollow sponsored"><img src="{affiliate_link.cta_image_url}" alt="{affiliate_link.cta_btn_text or "Shop Now"}" width="300" height="100" style="max-width: 100%; height: auto; display: block; border: 0; margin: 20px auto; padding: 10px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" /></a>'
+            else:
+                cta_content = f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">{affiliate_link.cta_btn_text or 'Shop Now'}</a>'
 
+            content += f"{cta_content}"
             content += f"\n\n<small>{self.DISCLOSURE}</small>"
 
             # Add related posts if any

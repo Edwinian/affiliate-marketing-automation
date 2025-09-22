@@ -65,16 +65,16 @@ class Channel(ABC):
         focuses = [
             f"an application of {affiliate_link.product_title}",
             f"a potential consequence of not using {affiliate_link.product_title}",
-            f"benefits of using {affiliate_link.product_title} over free alternatives",
+            f"it does not conflict with {affiliate_link.product_title}",
         ]
         focus_idx = random.randint(0, len(focuses) - 1)
         focus = focuses[focus_idx]
 
         try:
             prompt_splits = [
-                f"Give me one title about knowledge of {affiliate_link.categories[0]} and {focus}",
+                f"Give me one title about {affiliate_link.categories[0]} and {focus}",
                 f"The title is SEO friendly",
-                f"The title promotes {affiliate_link.product_title} without directly mentioning it",
+                f"The title promotes does not directly mention {affiliate_link.product_title}",
                 f"The title separates each word with space",
                 f"Return the title only without quotes",
             ]

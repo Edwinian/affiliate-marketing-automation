@@ -27,7 +27,7 @@ class StrEnum(str, Enum):
 
 class ProgramBrand(StrEnum):
     AMAZON = "amazon"
-    NORD = "nord"
+    NORD = "vpn"
     FIVERR = "fiverr"
 
 
