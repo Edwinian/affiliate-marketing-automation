@@ -1,4 +1,5 @@
 import html
+from urllib.error import HTTPError
 import requests
 from typing import List, Optional
 
@@ -13,6 +14,7 @@ from channel import Channel
 from enums import LlmErrorPrompt
 
 from common import os, load_dotenv, requests
+from utils import get_with_retry
 
 
 class WordpressService(Channel):
@@ -27,6 +29,7 @@ class WordpressService(Channel):
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {credentials['ACCESS_TOKEN']}",
+            "User-Agent": "affiliate_marketing_automation/1.0",
         }
 
     def sanitize(self, title: str) -> str:
@@ -287,6 +290,17 @@ class WordpressService(Channel):
             self.logger.error(f"Error parsing response for category '{name}': {e}")
             return 0
 
+    @get_with_retry(
+        max_retries=5,
+        initial_delay=2.0,
+        max_delay=30.0,
+        retry_on_empty=True,
+        retry_on_exceptions=(
+            ValueError,
+            ConnectionError,
+            HTTPError,
+        ),
+    )
     def _get_data(
         self,
         resource: str,
@@ -519,6 +533,13 @@ class WordpressService(Channel):
                 limit=paragraph_count + 1,
                 size="landscape",
             )
+
+            if len(image_urls) < 1:
+                self.logger.warning(
+                    f"Insufficient images found for categories {affiliate_link.categories}, aborting post creation"
+                )
+                return ""
+
             title = self.get_wordpress_title(affiliate_link)
             content = self.get_post_content(
                 title=title,
@@ -556,6 +577,50 @@ class WordpressService(Channel):
             self.logger.error(
                 f"Error creating post: {e}, Response: {e.response.text if e.response else 'No response'}"
             )
+            return ""
+
+    def get_media(self, media_id: int) -> str:
+        """
+        Retrieve the media URL for a given media ID.
+
+        Args:
+            media_id (int): The WordPress media attachment ID
+
+        Returns:
+            str: The source URL of the image, or empty string if not found
+        """
+        try:
+            if not media_id:
+                self.logger.warning("No media ID provided")
+                return ""
+
+            # Get the media item by ID
+            response = requests.get(
+                f"{self.api_url}/media/{media_id}", headers=self.headers
+            )
+            response.raise_for_status()
+
+            media_data = response.json()
+            image_url = media_data.get("source_url", "")
+
+            if image_url:
+                self.logger.info(
+                    f"Retrieved image URL for media ID {media_id}: {image_url}"
+                )
+            else:
+                self.logger.warning(f"No source_url found for media ID {media_id}")
+
+            return image_url
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error retrieving image for media ID {media_id}: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
+            )
+            return ""
+        except ValueError as e:
+            self.logger.error(f"Error parsing media response for ID {media_id}: {e}")
             return ""
 
     def upload_feature_image(self, image_url: str) -> int:
@@ -709,6 +774,24 @@ class WordpressService(Channel):
             )
             return []
 
+    def _get_cta_content(self, affiliate_link: AffiliateLink) -> str:
+        if affiliate_link.cta_image_url:
+            # Self-hosted Wordpress does not render img element wrapped with a-tag, instead create clickable div with onclick that opens in new tab
+            cta_image = (
+                f'<img decoding="async" src="{affiliate_link.cta_image_url}" '
+                f'alt="CTA" style="max-width: 100%; height: auto; display: block; cursor: pointer;" />'
+            )
+            cta_content = (
+                f"\n\n<div onclick=\"window.open('{affiliate_link.url}', '_blank')\">"
+                f"{cta_image}"
+                f"</div>"
+            )
+        else:
+            # Fallback to regular button for text-only CTA
+            cta_content = f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">{affiliate_link.cta_btn_text or 'Shop Now'}</a>'
+
+        return cta_content
+
     def get_post_content(
         self,
         title: str,
@@ -723,10 +806,14 @@ class WordpressService(Channel):
                 f"2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs",
                 f"Each paragraph is preceded by a title that summarizes the paragraph wrapped with the <h3><b></b></h3> tag instead of the <p></p> tag",
                 f"The last paragraph relates the content to {affiliate_link.product_title}, and explain why it is a good choice",
-                f"Add these images in front of each paragraph respectively, wrapped with the <img> tag with style 'max-width: 100%; height: auto; display: block;': {', '.join(image_urls[:paragraph_count])}",
                 f"The conclusion should include a strong call to action to help boost conversions",
                 f"Return the post content only",
             ]
+
+            if image_urls:
+                prompt_splits.append(
+                    f"Add these images in front of each paragraph respectively, wrapped with the <img> tag with style 'max-width: 100%; height: auto; display: block;': {', '.join(image_urls[:paragraph_count])}",
+                )
             prompt = ". ".join(prompt_splits)
             content = self.llm_service.generate_text(prompt)
             similar_posts = self.get_similar_posts(title)
@@ -742,11 +829,7 @@ class WordpressService(Channel):
                 for url in affiliate_link.video_urls:
                     content += f'\n\n<video controls style="max-width: 100%; height: auto; display: block;"><source src="{url}" type="video/mp4">Your browser does not support the video tag.</video>'
 
-            if affiliate_link.cta_image_url:
-                cta_content = f'\n\n<a href="{affiliate_link.url}" target="_blank" rel="nofollow sponsored"><img src="{affiliate_link.cta_image_url}" alt="{affiliate_link.cta_btn_text or "Shop Now"}" width="300" height="100" style="max-width: 100%; height: auto; display: block; border: 0; margin: 20px auto; padding: 10px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" /></a>'
-            else:
-                cta_content = f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">{affiliate_link.cta_btn_text or 'Shop Now'}</a>'
-
+            cta_content = self._get_cta_content(affiliate_link)
             content += f"{cta_content}"
             content += f"\n\n<small>{self.DISCLOSURE}</small>"
 
@@ -771,7 +854,7 @@ if __name__ == "__main__":
         "FRONTEND_URL": "https://edwinchan6.wordpress.com",
     }
     service = WordpressService(credentials=credentials)
-    new_menu_ids = service.get_categories()
+    new_menu_ids = service.get_media(9)
     print(f"Created menu items: {new_menu_ids}")
 
     # html_content = service.get_navbar_html()

@@ -17,15 +17,15 @@ class MediaService:
         self.used_images: list[str] = []
 
     @get_with_retry(
-        max_retries=3,
+        max_retries=5,
         initial_delay=2.0,
         max_delay=30.0,
-        retry_on_empty=True,  # Retry on empty image lists
+        retry_on_empty=True,
         retry_on_exceptions=(
             ValueError,
             ConnectionError,
             HTTPError,
-        ),  # Specific exceptions
+        ),
     )
     def fetch_image_urls(
         self,
