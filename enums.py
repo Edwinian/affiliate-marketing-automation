@@ -26,9 +26,9 @@ class StrEnum(str, Enum):
 
 
 class ProgramBrand(StrEnum):
-    AMAZON = "amazon"
-    NORD = "vpn"
-    FIVERR = "fiverr"
+    AMAZON = "AMAZON"
+    NORD = "VPN"
+    FIVERR = "FIVERR"
 
 
 class LlmErrorPrompt(StrEnum):

@@ -18,7 +18,13 @@ class LlmService:
         retry_count: int = 1,
     ) -> str:
         try:
-            prompt = f"Respond with {LlmErrorPrompt.QUOTA_EXCEEDED} if no more credit for usage. Respond with {LlmErrorPrompt.LENGTH_EXCEEDED} if input + output length is too long. {prompt}"
+            chat = self.x_client.chat.create(model=self.model_name)
+            prompt_splits = [
+                f"Respond with {LlmErrorPrompt.QUOTA_EXCEEDED} if no more credit for usage",
+                f"Respond with {LlmErrorPrompt.LENGTH_EXCEEDED} if input + output length is too long. {prompt}",
+                f"Do not include prompt in the response",
+            ]
+            prompt = ". ".join(prompt_splits)
             chat = self.x_client.chat.create(model=self.model_name)
             chat.append(user(prompt))
             response = chat.sample()

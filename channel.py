@@ -11,7 +11,7 @@ from media_service import MediaService
 
 class Channel(ABC):
     DISCLOSURE = "Disclosure: We earn a commission at no extra cost to you if you make a purchase through links here. This helps support us in creating more content for you. Thank you for your support!"
-    FORBIDDEN_KEYWORDS = [brand.value for brand in ProgramBrand]
+    FORBIDDEN_KEYWORDS = [brand.value.lower() for brand in ProgramBrand]
 
     def __init__(self):
         self.logger = LoggerService(name=self.__class__.__name__)

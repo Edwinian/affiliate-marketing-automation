@@ -48,8 +48,10 @@ class WordpressService(Channel):
             List[int]: List of IDs of newly created menu items.
         """
         try:
-            # Step 1: Get all categories and extract names
+            # Step 1: Get all categories except "Uncategorized", which is set by WordPress
             categories = self.get_categories()
+            categories = [cat for cat in categories if cat.name != "Uncategorized"]
+
             if not categories:
                 self.logger.info("No categories found to update menu")
                 return []
@@ -908,6 +910,8 @@ class WordpressService(Channel):
             return []
 
     def _get_cta_content(self, affiliate_link: AffiliateLink) -> str:
+        style = "margin-top: 25px;"
+
         def _get_a_tag_cta_content(children: str, style: Optional[str] = None) -> str:
             return f'\n\n<a href="{affiliate_link.url}" target="_blank" style="{style}">{children}</a>'
 
@@ -920,16 +924,16 @@ class WordpressService(Channel):
             # Wordpress-hostes Wordpress sanitizes onClick attribute from div element, instead wrap img element with a-tag
             # Self-hosted Wordpress does not render img element wrapped with a-tag, instead create clickable div with onclick that opens in new tab
             if self.is_wordpress_hosted:
-                cta_content = _get_a_tag_cta_content(children=cta_image)
+                cta_content = _get_a_tag_cta_content(children=cta_image, style=style)
             else:
                 cta_content = (
-                    f"\n\n<div onclick=\"window.open('{affiliate_link.url}', '_blank')\">"
+                    f"\n\n<div style='{style}' onclick=\"window.open('{affiliate_link.url}', '_blank')\">"
                     f"{cta_image}"
                     f"</div>"
                 )
         else:
             # Fallback to regular button for text-only CTA
-            style = "background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;"
+            style += " background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;"
             cta_content = _get_a_tag_cta_content(
                 children=affiliate_link.cta_btn_text or "Shop Now", style=style
             )
@@ -945,12 +949,14 @@ class WordpressService(Channel):
     ) -> str:
         try:
             prompt_splits = [
-                f"Give me a wordpress post content for the title {title}, including an introduction, {paragraph_count} paragraphs and a conclusion",
-                f"50-80 words for introduction and conclusion, 100-150 words for each paragraph",
+                f"Give me a wordpress post content for the title {title} that is SEO friendly, including an introduction, {paragraph_count} paragraphs and a conclusion",
                 f"2 empty lines to separate introduction and the first paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the paragraphs",
                 f"Each paragraph is preceded by a title that summarizes the paragraph wrapped with the <h3><b></b></h3> tag instead of the <p></p> tag",
                 f"The last paragraph relates the content to {affiliate_link.product_title}, and explain why it is a good choice",
                 f"The conclusion should include a strong call to action to help boost conversions",
+                f"50-80 words for introduction and conclusion, 100-150 words for each paragraph and the call to action",
+                f"Limit sentences to mo more than 20 words",
+                f"At least 25% of the sentences contain transition words",
                 f"Return the post content only",
             ]
 
