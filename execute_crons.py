@@ -12,7 +12,7 @@ def execute_crons(
     custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None,
 ):
     logger = LoggerService(name="execute_crons")
-    affiliate_programs: list[AffiliateProgram] = [VPNService()]
+    affiliate_programs: list[AffiliateProgram] = [VPNService(), FiverrService()]
 
     for program in affiliate_programs:
         name = program.__class__.__name__

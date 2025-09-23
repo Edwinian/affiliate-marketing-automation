@@ -18,6 +18,7 @@ class AffiliateProgram(ABC):
     PROGRAM_KEY = None
     IS_FIXED_LINK: bool = False
     LINK_LIMIT = 1
+    NAV_MENU_ID = None
 
     def __init__(self):
         self.program_name = self.__class__.__name__
@@ -42,15 +43,24 @@ class AffiliateProgram(ABC):
             "FRONTEND_URL": os.getenv(f"WORDPRESS_FRONTEND_URL_{self.PROGRAM_KEY}"),
             "ACCESS_TOKEN": os.getenv(f"WORDPRESS_ACCESS_TOKEN_{self.PROGRAM_KEY}"),
         }
+        is_wordpress_hosted = False
 
         for key, value in credentials.items():
             if value is None:
                 self.logger.warning(
-                    f"Missing environment variable {key} for program {self.PROGRAM_KEY}"
+                    f"Missing environment variable {key} for program {self.PROGRAM_KEY}, using wordpress-hosted credentials instead."
                 )
-                return None
+                credentials = {
+                    "API_URL": os.getenv(f"WORDPRESS_API_URL"),
+                    "FRONTEND_URL": os.getenv(f"WORDPRESS_FRONTEND_URL"),
+                    "ACCESS_TOKEN": os.getenv(f"WORDPRESS_ACCESS_TOKEN"),
+                }
+                is_wordpress_hosted = True
+                break
 
-        return WordpressService(credentials=credentials)
+        return WordpressService(
+            credentials=credentials, is_wordpress_hosted=is_wordpress_hosted
+        )
 
     def get_bulk_create_from_posts_csv(self, limit: int):
         posts = self.wordpress.get_posts()
@@ -62,6 +72,7 @@ class AffiliateProgram(ABC):
         self, affiliate_links: list[AffiliateLink]
     ) -> list[UsedLink]:
         create_links: list[UsedLink] = []
+
         for link in affiliate_links:
             try:
                 ## Create content for the affiliate link to each channel
@@ -90,6 +101,9 @@ class AffiliateProgram(ABC):
             return self.logger.info(f"No custom or unused links.")
 
         create_links = self.create_content_for_links(affiliate_links=affiliate_links)
+
+        if self.NAV_MENU_ID:
+            self.wordpress.update_nav_menu(menu_id=self.NAV_MENU_ID)
 
         if not self.IS_FIXED_LINK:
             self.media_service.add_used_affiliate_links(used_links=create_links)

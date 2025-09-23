@@ -7,6 +7,7 @@ from common import os, load_dotenv
 class VPNService(AffiliateProgram):
     IS_FIXED_LINK = True
     PROGRAM_KEY = ProgramBrand.NORD
+    NAV_MENU_ID = 2
 
     def get_affiliate_links(self) -> list[AffiliateLink]:
         comparison_image_url = "https://webshielddaily.com/wp-content/uploads/2025/09/nordvpn_comparison.png"

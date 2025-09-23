@@ -41,3 +41,11 @@ class PinterestTrendType(StrEnum):
     MONTHLY = "monthly"  # high search volume in the last month
     YEARLY = "yearly"  # high search volume in the last year
     SEASONAL = "seasonal"  # high upward growth in search volume over the last month and exhibit a seasonal recurring pattern
+
+
+class WordpressPostStatus(StrEnum):
+    DRAFT = "draft"
+    PENDING = "pending"
+    PRIVATE = "private"
+    PUBLISH = "publish"
+    FUTURE = "future"

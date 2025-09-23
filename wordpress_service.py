@@ -11,7 +11,7 @@ from all_types import (
     WordpressTag,
 )
 from channel import Channel
-from enums import LlmErrorPrompt
+from enums import LlmErrorPrompt, WordpressPostStatus
 
 from common import os, load_dotenv, requests
 from utils import get_with_retry
@@ -22,7 +22,7 @@ class WordpressService(Channel):
     POSTS: List[WordpressPost] = []
     TAGS: List[WordpressTag] = []
 
-    def __init__(self, credentials: dict[str, str]):
+    def __init__(self, credentials: dict[str, str], is_wordpress_hosted: bool = True):
         super().__init__()
         self.api_url = credentials["API_URL"]
         self.frontend_url = credentials["FRONTEND_URL"]
@@ -31,10 +31,125 @@ class WordpressService(Channel):
             "Authorization": f"Bearer {credentials['ACCESS_TOKEN']}",
             "User-Agent": "affiliate_marketing_automation/1.0",
         }
+        self.is_wordpress_hosted = is_wordpress_hosted
 
     def sanitize(self, title: str) -> str:
         # WP may replace spaces with non-breaking spaces
         return html.unescape(title).replace("\xa0", " ")
+
+    def update_nav_menu(self, menu_id: int = 2) -> List[int]:
+        """
+        Update navigation menu by adding missing categories that don't exist in the menu items.
+
+        Args:
+            menu_id (int): The ID of the menu to update. Defaults to 2.
+
+        Returns:
+            List[int]: List of IDs of newly created menu items.
+        """
+        try:
+            # Step 1: Get all categories and extract names
+            categories = self.get_categories()
+            if not categories:
+                self.logger.info("No categories found to update menu")
+                return []
+
+            category_names = [cat.name for cat in categories]
+            self.logger.info(
+                f"Found {len(category_names)} categories: {category_names}"
+            )
+
+            # Step 2: Get existing menu items and extract titles
+            menu_items = self.get_menu_items(menu_id)
+            if not menu_items:
+                self.logger.info(f"No existing menu items found for menu ID {menu_id}")
+            else:
+                existing_titles = [item["title"]["rendered"] for item in menu_items]
+                self.logger.info(f"Existing menu titles: {existing_titles}")
+
+            # Step 3: Find missing categories (categories not in menu items)
+            missing_categories = [
+                cat for cat in categories if cat.name not in existing_titles
+            ]
+
+            if not missing_categories:
+                self.logger.info(
+                    f"All {len(category_names)} categories already exist in menu ID {menu_id}"
+                )
+                return []
+
+            self.logger.info(
+                f"Found {len(missing_categories)} missing categories: {[cat.name for cat in missing_categories]}"
+            )
+
+            # Step 4: Add missing categories to menu items
+            new_menu_ids = []
+            menu_order = len(menu_items) + 1  # Start after existing items
+
+            for category in sorted(missing_categories, key=lambda x: x.name.lower()):
+                category_name = category.name
+                category_url = f"{self.frontend_url}/category/{category.slug}"
+
+                payload = {
+                    "title": category_name,
+                    "url": category_url,
+                    "menu_order": menu_order,
+                    "status": "publish",
+                    "type": "taxonomy",
+                    "object": "category",  # Reference to category
+                    "object_id": category.id,  # Category ID
+                    "menus": menu_id,  # Assign to specified menu
+                }
+
+                self.logger.info(
+                    f"Creating menu item for category '{category_name}' with payload: {payload}"
+                )
+
+                try:
+                    response = requests.post(
+                        f"{self.api_url}/menu-items", headers=self.headers, json=payload
+                    )
+                    response.raise_for_status()
+                    menu_item_data = response.json()
+                    menu_item_id = menu_item_data.get("id", 0)
+
+                    if menu_item_id:
+                        self.logger.info(
+                            f"Successfully created menu item '{category_name}' (ID: {menu_item_id}) "
+                            f"for menu ID {menu_id}"
+                        )
+                        new_menu_ids.append(menu_item_id)
+                        menu_order += 1
+                    else:
+                        self.logger.error(
+                            f"Failed to retrieve ID for menu item '{category_name}' - response: {menu_item_data}"
+                        )
+
+                except requests.RequestException as e:
+                    self.logger.error(
+                        f"Error creating menu item for category '{category_name}': {e}, "
+                        f"Response: {e.response.text if e.response else 'No response'}, "
+                        f"Status Code: {e.response.status_code if e.response else 'N/A'}"
+                    )
+                except ValueError as e:
+                    self.logger.error(
+                        f"Error parsing response for menu item '{category_name}': {e}"
+                    )
+
+            if new_menu_ids:
+                self.logger.info(
+                    f"Successfully added {len(new_menu_ids)} new menu items to menu ID {menu_id}: {new_menu_ids}"
+                )
+            else:
+                self.logger.warning("No new menu items were created")
+
+            return new_menu_ids
+
+        except Exception as e:
+            self.logger.error(
+                f"Unexpected error in update_nav_menu for menu ID {menu_id}: {e}"
+            )
+            return []
 
     def get_menus(self, params: dict[str, str] = {}) -> List[dict]:
         """
@@ -172,7 +287,7 @@ class WordpressService(Channel):
             )
             return []
 
-    def update_menu_items(self) -> List[int]:
+    def update_menu_items(self, menu_id: int) -> List[int]:
         """
         Update menu items for categories not already in the 'Homepage' menu.
         """
@@ -537,7 +652,11 @@ class WordpressService(Channel):
 
         return category_ids
 
-    def create(self, affiliate_link: AffiliateLink) -> CreateChannelResponse:
+    def create(
+        self,
+        affiliate_link: AffiliateLink,
+        status: WordpressPostStatus = WordpressPostStatus.PUBLISH.value,
+    ) -> CreateChannelResponse:
         try:
             paragraph_count = 3
             # Images for body paragraphs and feature image
@@ -565,13 +684,16 @@ class WordpressService(Channel):
             tag_ids = self.get_similar_tag_ids(title) or self.create_tags(
                 affiliate_link
             )
-
             url = f"{self.api_url}/posts"
+
+            if self.is_wordpress_hosted:
+                status = WordpressPostStatus.PENDING.value
+
             # Author is the display name of the user
             payload = {
                 "title": title,
                 "content": content,
-                "status": "pending",
+                "status": status,
                 "featured_media": featured_media_id,
                 "categories": category_ids,
                 "tags": tag_ids,
@@ -786,20 +908,31 @@ class WordpressService(Channel):
             return []
 
     def _get_cta_content(self, affiliate_link: AffiliateLink) -> str:
+        def _get_a_tag_cta_content(children: str, style: Optional[str] = None) -> str:
+            return f'\n\n<a href="{affiliate_link.url}" target="_blank" style="{style}">{children}</a>'
+
         if affiliate_link.cta_image_url:
-            # Self-hosted Wordpress does not render img element wrapped with a-tag, instead create clickable div with onclick that opens in new tab
             cta_image = (
                 f'<img decoding="async" src="{affiliate_link.cta_image_url}" '
                 f'alt="CTA" style="max-width: 100%; height: auto; display: block; cursor: pointer;" />'
             )
-            cta_content = (
-                f"\n\n<div onclick=\"window.open('{affiliate_link.url}', '_blank')\">"
-                f"{cta_image}"
-                f"</div>"
-            )
+
+            # Wordpress-hostes Wordpress sanitizes onClick attribute from div element, instead wrap img element with a-tag
+            # Self-hosted Wordpress does not render img element wrapped with a-tag, instead create clickable div with onclick that opens in new tab
+            if self.is_wordpress_hosted:
+                cta_content = _get_a_tag_cta_content(children=cta_image)
+            else:
+                cta_content = (
+                    f"\n\n<div onclick=\"window.open('{affiliate_link.url}', '_blank')\">"
+                    f"{cta_image}"
+                    f"</div>"
+                )
         else:
             # Fallback to regular button for text-only CTA
-            cta_content = f'\n\n<a href="{affiliate_link.url}" target="_blank" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">{affiliate_link.cta_btn_text or 'Shop Now'}</a>'
+            style = "background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;"
+            cta_content = _get_a_tag_cta_content(
+                children=affiliate_link.cta_btn_text or "Shop Now", style=style
+            )
 
         return cta_content
 
@@ -860,13 +993,13 @@ class WordpressService(Channel):
 
 if __name__ == "__main__":
     credentials = {
-        "API_URL": os.getenv("WORDPRESS_API_URL_FIVERR"),
-        "ACCESS_TOKEN": os.getenv("WORDPRESS_ACCESS_TOKEN_FIVERR"),
-        "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL_FIVERR"),
+        "API_URL": os.getenv("WORDPRESS_API_URL_VPN"),
+        "ACCESS_TOKEN": os.getenv("WORDPRESS_ACCESS_TOKEN_VPN"),
+        "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL_VPN"),
     }
     service = WordpressService(credentials=credentials)
-    new_menu_ids = service.get_media(9)
-    print(f"Created menu items: {new_menu_ids}")
+    items = service.update_nav_menu()
+    print(f"Created menu items: items={items}")
 
     # html_content = service.get_navbar_html()
     # print(f"Navbar HTML:\n{html_content}")

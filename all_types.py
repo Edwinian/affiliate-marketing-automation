@@ -82,3 +82,13 @@ class Pin:
     title: str
     link: str
     description: str
+
+
+@dataclass
+class MenuItem:
+    id: int
+    title: str
+    url: str
+    menu_order: int
+    parent: int = 0
+    description: str = ""
