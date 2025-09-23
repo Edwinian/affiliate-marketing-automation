@@ -14,7 +14,7 @@ from channel import Channel
 from enums import LlmErrorPrompt, WordpressPostStatus
 
 from common import os, load_dotenv, requests
-from utils import get_with_retry
+from utils import get_img_element, get_with_retry
 
 
 class WordpressService(Channel):
@@ -778,7 +778,7 @@ class WordpressService(Channel):
     def create(
         self,
         affiliate_link: AffiliateLink,
-        status: WordpressPostStatus = WordpressPostStatus.PUBLISH.value,
+        status: WordpressPostStatus = WordpressPostStatus.PENDING.value,
     ) -> CreateChannelResponse:
         try:
             paragraph_count = 3
@@ -1040,7 +1040,7 @@ class WordpressService(Channel):
             return []
 
     def _get_cta_content(self, affiliate_link: AffiliateLink) -> str:
-        style = "margin-top: 25px;"
+        style = "margin-top: 20px;"
 
         def _get_a_tag_cta_content(children: str, style: Optional[str] = None) -> str:
             return f'\n\n<a href="{affiliate_link.url}" target="_blank" style="{style}">{children}</a>'
@@ -1112,6 +1112,16 @@ class WordpressService(Channel):
             cta_content = self._get_cta_content(affiliate_link)
             content += f"{cta_content}"
             content += f"\n\n<small>{self.DISCLOSURE}</small>"
+
+            # Add social media share buttons
+            content += (
+                f'\n\n<div class="social-share" style="margin-top: 20px; display: flex; flex-direction: row; align-items: center;">'
+                f'<a href="https://www.facebook.com/sharer/sharer.php?u={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #3b5998;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/facebook.png', alt='Facebook', style='height: 50px')}</a>'
+                f'<a href="https://twitter.com/intent/tweet?url={affiliate_link.url}&text={title}" target="_blank" rel="noopener" style="margin-right: 10px; color: #1DA1F2;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/twitter.png', alt='X_Twitter', style='height: 50px')}</a>'
+                f'<a href="https://www.linkedin.com/sharing/share-offsite/?url={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #0077b5;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/pinterest.png', alt='Linkedin', style='height: 50px')}</a>'
+                f'<a href="https://pinterest.com/pin/create/button/?url={affiliate_link.url}&description={title}" target="_blank" rel="noopener" style="color: #BD081C;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/linkedin.png', alt='Pinterest', style='height: 50px')}</a>'
+                f"</div>"
+            )
 
             # Add related posts if any
             if similar_posts:

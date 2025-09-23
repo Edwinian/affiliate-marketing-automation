@@ -4,6 +4,10 @@ from functools import wraps
 from typing import Callable, Any, Optional
 
 
+def get_img_element(src=str, alt: Optional[str] = "", style: Optional[str] = "") -> str:
+    return f'<img src="{src}" alt="{alt}" style="max-width: 100%; height: auto; display: block; {style}">'
+
+
 def get_with_retry(
     max_retries: int = 3,
     initial_delay: float = 1.0,
