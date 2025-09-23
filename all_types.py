@@ -54,6 +54,7 @@ class WordpressPost:
     link: str
     date: str
     status: str
+    featured_media: int
     categories: List[WordpressCategory]
 
 

@@ -528,6 +528,7 @@ class WordpressService(Channel):
                     link=post.get("link", ""),
                     date=post.get("date", ""),
                     status=post.get("status", ""),
+                    featured_media=post.get("featured_media", 0),
                     categories=categories,
                 )
                 posts.append(post_data)
@@ -654,6 +655,126 @@ class WordpressService(Channel):
 
         return category_ids
 
+    def delete_media(self, media_id: int) -> bool:
+        """
+        Delete a WordPress media item by its ID.
+
+        Args:
+            media_id (int): The ID of the media item to delete.
+
+        Returns:
+            bool: True if the media item was successfully deleted, False otherwise.
+        """
+        try:
+            if not media_id:
+                self.logger.warning("No media ID provided")
+                return False
+
+            url = f"{self.api_url}/media/{media_id}"
+            response = requests.delete(
+                url, headers=self.headers, params={"force": True}
+            )
+            response.raise_for_status()
+            self.logger.info(f"Successfully deleted media item ID {media_id}")
+            return True
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error deleting media item ID {media_id}: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
+            )
+            return False
+        except ValueError as e:
+            self.logger.error(
+                f"Error parsing response for media item ID {media_id}: {e}"
+            )
+            return False
+
+    def delete_post(self, post: WordpressPost) -> List[int]:
+        """
+        Delete multiple WordPress posts by their IDs.
+
+        Args:
+            post_ids (List[int]): List of post IDs to delete.
+
+        Returns:
+            List[int]: List of successfully deleted post IDs.
+        """
+        post_id = post.id
+
+        try:
+            url = f"{self.api_url}/posts/{post_id}"
+            response = requests.delete(url, headers=self.headers)
+            response.raise_for_status()
+            deleted_id = post_id
+            self.logger.info(f"Successfully deleted post ID {post_id}")
+            # Clear cached posts to ensure consistency
+            self.POSTS = []
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error deleting post ID {post_id}: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
+            )
+        except ValueError as e:
+            self.logger.error(f"Error parsing response for post ID {post_id}: {e}")
+
+        if deleted_id:
+            self.delete_media(post.featured_media)
+            self.logger.info(f"Successfully deleted posts: {deleted_id}")
+        else:
+            self.logger.warning("No posts were deleted")
+
+        return deleted_id
+
+    def update_post(self, post: WordpressPost) -> bool:
+        """
+        Update an existing WordPress post with the provided WordpressPost object.
+
+        Args:
+            post (WordpressPost): The WordPress post object containing updated data.
+
+        Returns:
+            bool: True if the post was successfully updated, False otherwise.
+        """
+        try:
+            if not post.id:
+                self.logger.error("No post ID provided for update")
+                return False
+
+            url = f"{self.api_url}/posts/{post.id}"
+            payload = {
+                "title": post.title,
+                "content": post.content,
+                "status": post.status,
+                "featured_media": post.featured_media,
+                "categories": (
+                    [cat.id for cat in post.categories] if post.categories else []
+                ),
+                "excerpt": post.title,  # Avoid auto comments by WP
+            }
+
+            self.logger.info(f"Updating post ID {post.id} with payload: {payload}")
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+
+            # Clear cached posts to ensure consistency
+            self.POSTS = []
+            self.logger.info(f"Successfully updated post ID {post.id}")
+            return True
+
+        except requests.RequestException as e:
+            self.logger.error(
+                f"Error updating post ID {post.id}: {e}, "
+                f"Response: {e.response.text if e.response else 'No response'}, "
+                f"Status Code: {e.response.status_code if e.response else 'N/A'}"
+            )
+            return False
+        except ValueError as e:
+            self.logger.error(f"Error parsing response for post ID {post.id}: {e}")
+            return False
+
     def create(
         self,
         affiliate_link: AffiliateLink,
@@ -681,7 +802,9 @@ class WordpressService(Channel):
                 image_urls=image_urls,
                 paragraph_count=paragraph_count,
             )
-            featured_media_id = self.upload_feature_image(image_urls[-1])
+            featured_media_id = self.upload_feature_image(
+                image_url=image_urls[-1], title=title
+            )
             category_ids = self.get_or_create_categories(affiliate_link)
             tag_ids = self.get_similar_tag_ids(title) or self.create_tags(
                 affiliate_link
@@ -758,7 +881,7 @@ class WordpressService(Channel):
             self.logger.error(f"Error parsing media response for ID {media_id}: {e}")
             return ""
 
-    def upload_feature_image(self, image_url: str) -> int:
+    def upload_feature_image(self, image_url: str, title: str) -> int:
         try:
             image_response = requests.get(image_url)
             image_response.raise_for_status()
@@ -769,7 +892,14 @@ class WordpressService(Channel):
             headers.pop("Content-Type", None)
             files = {"file": ("image.jpg", image_data, "image/jpeg")}
             response = requests.post(
-                url, headers=headers, files=files, data={"title": "Featured Image"}
+                url,
+                headers=headers,
+                files=files,
+                data={
+                    "title": title,
+                    "alt_text": title,
+                    "description": title,
+                },  # Add title to media metadata for SEO
             )
             response.raise_for_status()
             return response.json().get("id", 0)
@@ -1004,8 +1134,10 @@ if __name__ == "__main__":
         "FRONTEND_URL": os.getenv("WORDPRESS_FRONTEND_URL_VPN"),
     }
     service = WordpressService(credentials=credentials)
-    items = service.update_nav_menu()
-    print(f"Created menu items: items={items}")
+    items = service.get_posts()
+    # post = items[0]
+    # result = service.delete_post(post=post)
+    print(f"result: {items[0].date}")
 
     # html_content = service.get_navbar_html()
     # print(f"Navbar HTML:\n{html_content}")
