@@ -1096,7 +1096,7 @@ class WordpressService(Channel):
                 )
             prompt = ". ".join(prompt_splits)
             content = self.llm_service.generate_text(prompt)
-            similar_posts = self.get_similar_posts(title)
+            # similar_posts = self.get_similar_posts(title)
 
             if affiliate_link.additional_content:
                 content += f"\n\n{affiliate_link.additional_content}"
@@ -1123,13 +1123,13 @@ class WordpressService(Channel):
                 f"</div>"
             )
 
-            # Add related posts if any
-            if similar_posts:
-                content += "\n\n<h4><strong>Related Posts</strong></h4>\n"
-                for post in similar_posts:
-                    content += (
-                        f'<a href="{post.link}" target="_blank">{post.title}</a><br>\n'
-                    )
+            # # Add related posts if any
+            # if similar_posts:
+            #     content += "\n\n<h4><strong>Related Posts</strong></h4>\n"
+            #     for post in similar_posts:
+            #         content += (
+            #             f'<a href="{post.link}" target="_blank">{post.title}</a><br>\n'
+            #         )
 
             return content
         except Exception as e:
