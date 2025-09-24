@@ -1116,10 +1116,10 @@ class WordpressService(Channel):
             # Add social media share buttons
             content += (
                 f'\n\n<div class="social-share" style="margin-top: 20px; display: flex; flex-direction: row; align-items: center;">'
-                f'<a href="https://www.facebook.com/sharer/sharer.php?u={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #3b5998;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/facebook.png', alt='Facebook', style='height: 50px')}</a>'
-                f'<a href="https://twitter.com/intent/tweet?url={affiliate_link.url}&text={title}" target="_blank" rel="noopener" style="margin-right: 10px; color: #1DA1F2;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/twitter.png', alt='X_Twitter', style='height: 50px')}</a>'
-                f'<a href="https://www.linkedin.com/sharing/share-offsite/?url={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #0077b5;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/pinterest.png', alt='Linkedin', style='height: 50px')}</a>'
-                f'<a href="https://pinterest.com/pin/create/button/?url={affiliate_link.url}&description={title}" target="_blank" rel="noopener" style="color: #BD081C;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/linkedin.png', alt='Pinterest', style='height: 50px')}</a>'
+                f'<a href="https://www.facebook.com/sharer/sharer.php?u={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #3b5998;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/facebook.png', alt='Facebook', style='height: 25px')}</a>'
+                f'<a href="https://twitter.com/intent/tweet?url={affiliate_link.url}&text={title}" target="_blank" rel="noopener" style="margin-right: 10px; color: #1DA1F2;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/twitter.png', alt='X_Twitter', style='height: 25px')}</a>'
+                f'<a href="https://www.linkedin.com/sharing/share-offsite/?url={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #0077b5;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/pinterest.png', alt='Linkedin', style='height: 25px')}</a>'
+                f'<a href="https://pinterest.com/pin/create/button/?url={affiliate_link.url}&description={title}" target="_blank" rel="noopener" style="color: #BD081C;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/linkedin.png', alt='Pinterest', style='height: 25px')}</a>'
                 f"</div>"
             )
 

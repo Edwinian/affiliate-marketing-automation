@@ -27,7 +27,7 @@ class VPNService(AffiliateProgram):
                 additional_content=f'<h3>How NordVPN compares to other top VPNs</h3><div>{comparison_image_element}<div>Date of comparison: January 11, 2024.</div><div>*Overall network performance according to research by AV-Test. You can read <a href="{comparison_report_url}" target="_blank">the full report</a>.</div></div>',
             ),
             AffiliateLink(
-                url=f"https://go.nordpass.io/aff_c?offer_id=488&aff_id=131575&url_id=9356 ",
+                url=f"https://go.nordpass.io/aff_c?offer_id=488&aff_id=131575&url_id=9356",
                 product_title="NordPass",
                 categories=[
                     "Password Manager",
