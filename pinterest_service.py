@@ -14,6 +14,7 @@ from common import os, load_dotenv, requests
 
 class PinterestService(Channel):
     SKIP_KEYWORDS = ["outfit ideas", "hair styles"]
+    TITLE_LIMIT = 100
     query_keywords_map: dict[str, list[str]] = {}
 
     def __init__(
@@ -80,7 +81,9 @@ class PinterestService(Channel):
                 break
 
             try:
-                title = self.get_title(affiliate_link=affiliate_link, limit=100)
+                title = self.get_title(
+                    affiliate_link=affiliate_link, limit=self.TITLE_LIMIT
+                )
                 link = affiliate_link.url
                 csv_titles = [row["Title"] for row in csv_data]
 
@@ -660,17 +663,24 @@ class PinterestService(Channel):
 
     def create(
         self,
-        title: str,
-        image_url: str,
-        category: str,
-        link: str,
+        affiliate_link: AffiliateLink,
+        image_url: Optional[str] = None,
         video_url: Optional[str] = None,
     ) -> CreateChannelResponse:
         """
-        Creates a pin on the specified board with the given image URL, and optional affiliate link.
+        Creates a pin on the specified board with the given image/video URL, and optional affiliate link.
         Returns the pin ID.
         """
         try:
+            category = affiliate_link.categories[0]
+
+            if not image_url and not video_url:
+                image_urls = self.media_service.get_image_urls(
+                    query=category,
+                    limit=1,
+                )
+                image_url = image_urls[0]
+
             board = self.get_create_board(category=category)
             board_id = board.get("id")
 
@@ -678,13 +688,16 @@ class PinterestService(Channel):
                 self.logger.info("No valid board ID found.")
                 return ""
 
+            title = self.get_title(
+                affiliate_link=affiliate_link, limit=self.TITLE_LIMIT
+            )
             description = self.get_pin_description(title=title)
             url = f"{self.base_url}/pins"
             base_payload = {
                 "board_id": board_id,
                 "title": title,
                 "description": description,
-                "link": link,
+                "link": affiliate_link.url,
             }
 
             # Determine media type and build payload
