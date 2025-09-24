@@ -192,10 +192,9 @@ class PinterestService(Channel):
             return ""
 
     def get_create_board(self, category: str) -> dict[str, str]:
-        return {
-            "title": category,
-            "id": self._get_board_id(category),
-        }
+        id = self._get_board_id(category)
+        print("board id", id)
+        return {"title": category, "id": id}
 
     def get_csv_row_data(
         self,
@@ -672,7 +671,9 @@ class PinterestService(Channel):
         try:
             category = affiliate_link.categories[0]
             thumbnail_url = affiliate_link.thumbnail_url
-            video_url = affiliate_link.video_urls[0]
+            video_url = (
+                affiliate_link.video_urls[0] if affiliate_link.video_urls else None
+            )
 
             # Image pin by default if no video URL provided
             if not thumbnail_url and not video_url:
@@ -684,6 +685,7 @@ class PinterestService(Channel):
 
             board = self.get_create_board(category=category)
             board_id = board.get("id")
+            print("board_id", board_id),
 
             if not board_id:
                 self.logger.info("No valid board ID found.")
@@ -796,72 +798,81 @@ class PinterestService(Channel):
 if __name__ == "__main__":
     service = PinterestService()
 
-    # result = service.get_trends(limit=5)
-    # print(result)
-
-    links = [
-        AffiliateLink(
-            categories=["fall nails"],
+    create = service.create(
+        affiliate_link=AffiliateLink(
+            categories=["fall nail"],
             url="https://amzn.to/3Ikx9pu",
             product_title="24Pcs Fall Press on Nails Medium Almond Thanksgiving Fake Nails Autumn Gilded Pumpkin Daisy Full Cover Fall Leaves False Nails Reusable Autumn Acrylic Nail Glue on Nail for Women Nail Decoration",
             thumbnail_url="https://m.media-amazon.com/images/I/81Np-H6JstL._SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["fall nails"],
-            url="https://amzn.to/4moXhgO",
-            product_title="BTArtbox Press On Nails Short - Lamp-Curable Almond Press On Nails with Glue for Women, Semi-Transparent Soft Gel Glue On Nails in 16 Sizes - 32 Stick On Nails Kit, Spill Tea",
-            thumbnail_url="https://m.media-amazon.com/images/I/71ntp6kqBhL._SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["fall outfits"],
-            url="https://amzn.to/46L3nmU",
-            product_title="Trendy Queen Women's 2 Piece Matching Lounge Set Long Sleeve Slightly Crop Top Wide Leg Pants Casual Sweatsuit",
-            thumbnail_url="https://m.media-amazon.com/images/I/61icMXLgUGL._AC_SY741_.jpg",
-        ),
-        AffiliateLink(
-            categories=["fall outfits"],
-            url="https://amzn.to/46e44Fn",
-            product_title="PRETTYGARDEN Womens Oversized Cardigan Sweaters 2025 Fall Long Lantern Sleeve Knit Open Front Lightweight Sweater",
-            thumbnail_url="https://m.media-amazon.com/images/I/81woqSb95fL._AC_SX679_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter hair braid"],
-            url="https://amzn.to/46cRSVl",
-            product_title="Long Braid Ponytail Extension with Hair Tie DIY Wrap Around Synthetic Hairpiece Natural Soft Fluffy Style for Women Daily Wear (34 Inch Brown Black)",
-            thumbnail_url="https://m.media-amazon.com/images/I/71V54DDVKGL._SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter hair braid"],
-            url="https://amzn.to/3Kvs2TO",
-            product_title="TOECWEGR Braided Headband WithTooth Wide Braid Messy Hair Hoop WomenFashion Hair Accessories (Dark gray light brown)",
-            thumbnail_url="https://m.media-amazon.com/images/I/71Un0ymBrJL._SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter fashion inspo"],
-            url="https://amzn.to/3VpEmaz",
-            product_title="Mafulus Women's Oversized Crewneck Sweater Batwing Puff Long Sleeve Cable Slouchy Pullover Jumper Tops",
-            thumbnail_url="https://m.media-amazon.com/images/I/71yo9VMFWZL._AC_SY741_.jpg",
-        ),
-        AffiliateLink(
-            categories=["winter fashion inspo"],
-            url="https://amzn.to/3VV31Uz",
-            product_title="SHEWIN Womens Waffle Knit Plaid Shacket Boyfriend Button Down Shirt Jacket Loose Long Sleeve Tops",
-            thumbnail_url="https://m.media-amazon.com/images/I/61JQ21yzlWL._AC_SY741_.jpg",
-        ),
-        AffiliateLink(
-            categories=["future wedding plans"],
-            url="https://amzn.to/4ng5s08",
-            product_title="Wedding Planner Book and Organizer-176 Pages Bridal Wedding Planning Book with Sticker Checklists and Calendars for Bride To Be, Unique Engagement Gifts for Newly Engaged Couples",
-            thumbnail_url="https://m.media-amazon.com/images/I/71f-sbjLSeL._AC_SL1500_.jpg",
-        ),
-        AffiliateLink(
-            categories=["future wedding plans"],
-            url="https://amzn.to/4nHKR4Q",
-            product_title="Wedding Planner Book and Organizer for Bride - Perfect Engagement Gift for Newly Engaged - Future Mrs Wedding Planning Binder with Rose Gold Accents, Tabs, Checklists - Bride to Be Gift",
-            thumbnail_url="https://m.media-amazon.com/images/I/51T1D7Gp9+L._AC_SL1080_.jpg",
-        ),
-    ]
-    result = service.get_bulk_create_from_affiliate_links_csv(
-        affiliate_links=links, skipUsedCheck=False
+        )
     )
-    print(result)
+
+    # result = service.get_trends(limit=5)
+    # print(result)
+
+    # links = [
+    #     AffiliateLink(
+    #         categories=["fall nails"],
+    #         url="https://amzn.to/3Ikx9pu",
+    #         product_title="24Pcs Fall Press on Nails Medium Almond Thanksgiving Fake Nails Autumn Gilded Pumpkin Daisy Full Cover Fall Leaves False Nails Reusable Autumn Acrylic Nail Glue on Nail for Women Nail Decoration",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/81Np-H6JstL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["fall nails"],
+    #         url="https://amzn.to/4moXhgO",
+    #         product_title="BTArtbox Press On Nails Short - Lamp-Curable Almond Press On Nails with Glue for Women, Semi-Transparent Soft Gel Glue On Nails in 16 Sizes - 32 Stick On Nails Kit, Spill Tea",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71ntp6kqBhL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["fall outfits"],
+    #         url="https://amzn.to/46L3nmU",
+    #         product_title="Trendy Queen Women's 2 Piece Matching Lounge Set Long Sleeve Slightly Crop Top Wide Leg Pants Casual Sweatsuit",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/61icMXLgUGL._AC_SY741_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["fall outfits"],
+    #         url="https://amzn.to/46e44Fn",
+    #         product_title="PRETTYGARDEN Womens Oversized Cardigan Sweaters 2025 Fall Long Lantern Sleeve Knit Open Front Lightweight Sweater",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/81woqSb95fL._AC_SX679_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter hair braid"],
+    #         url="https://amzn.to/46cRSVl",
+    #         product_title="Long Braid Ponytail Extension with Hair Tie DIY Wrap Around Synthetic Hairpiece Natural Soft Fluffy Style for Women Daily Wear (34 Inch Brown Black)",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71V54DDVKGL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter hair braid"],
+    #         url="https://amzn.to/3Kvs2TO",
+    #         product_title="TOECWEGR Braided Headband WithTooth Wide Braid Messy Hair Hoop WomenFashion Hair Accessories (Dark gray light brown)",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71Un0ymBrJL._SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter fashion inspo"],
+    #         url="https://amzn.to/3VpEmaz",
+    #         product_title="Mafulus Women's Oversized Crewneck Sweater Batwing Puff Long Sleeve Cable Slouchy Pullover Jumper Tops",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71yo9VMFWZL._AC_SY741_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["winter fashion inspo"],
+    #         url="https://amzn.to/3VV31Uz",
+    #         product_title="SHEWIN Womens Waffle Knit Plaid Shacket Boyfriend Button Down Shirt Jacket Loose Long Sleeve Tops",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/61JQ21yzlWL._AC_SY741_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["future wedding plans"],
+    #         url="https://amzn.to/4ng5s08",
+    #         product_title="Wedding Planner Book and Organizer-176 Pages Bridal Wedding Planning Book with Sticker Checklists and Calendars for Bride To Be, Unique Engagement Gifts for Newly Engaged Couples",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/71f-sbjLSeL._AC_SL1500_.jpg",
+    #     ),
+    #     AffiliateLink(
+    #         categories=["future wedding plans"],
+    #         url="https://amzn.to/4nHKR4Q",
+    #         product_title="Wedding Planner Book and Organizer for Bride - Perfect Engagement Gift for Newly Engaged - Future Mrs Wedding Planning Binder with Rose Gold Accents, Tabs, Checklists - Bride to Be Gift",
+    #         thumbnail_url="https://m.media-amazon.com/images/I/51T1D7Gp9+L._AC_SL1080_.jpg",
+    #     ),
+    # ]
+    # result = service.get_bulk_create_from_affiliate_links_csv(
+    #     affiliate_links=links, skipUsedCheck=False
+    # )
+    # print(result)
