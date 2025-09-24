@@ -3,6 +3,7 @@ from common import os, load_dotenv
 
 from all_types import AffiliateLink, UsedLink
 from aws_service import AWSService
+from enums import ChannelName
 from llm_service import LlmService
 from logger_service import LoggerService
 from media_service import MediaService
@@ -18,7 +19,8 @@ class AffiliateProgram(ABC):
     PROGRAM_KEY = None
     IS_FIXED_LINK: bool = False
     LINK_LIMIT = 1
-    NAV_MENU_ID = None
+    WORDPRESS_NAV_MENU_ID = None
+    CHANNEL_NAME = ChannelName.WORDPRESS.value
 
     def __init__(self):
         self.program_name = self.__class__.__name__
@@ -68,26 +70,26 @@ class AffiliateProgram(ABC):
             posts=posts, limit=limit
         )
 
-    def create_content_for_links(
+    def create_wordpress_posts(
         self, affiliate_links: list[AffiliateLink]
     ) -> list[UsedLink]:
         create_links: list[UsedLink] = []
 
         for link in affiliate_links:
             try:
-                ## Create content for the affiliate link to each channel
-                if self.wordpress:
-                    new_post = self.wordpress.create(
-                        affiliate_link=link,
+                new_content = self.wordpress.create(
+                    affiliate_link=link,
+                )
+                if new_content:
+                    create_links.append(UsedLink(url=link.url, post_id=new_content.id))
+                    self.logger.info(
+                        f"[Content created (ID = {new_content.id}): {link.url}"
                     )
-
-                    if new_post:
-                        create_links.append(UsedLink(url=link.url, post_id=new_post.id))
-                        self.logger.info(
-                            f"[Post created (ID = {new_post.id}): {link.url}"
-                        )
             except Exception as e:
                 self.logger.error(f"Error executing cron for link {link.url}: {e}")
+
+        if self.WORDPRESS_NAV_MENU_ID:
+            self.wordpress.update_nav_menu(menu_id=self.WORDPRESS_NAV_MENU_ID)
 
         return create_links
 
@@ -100,10 +102,11 @@ class AffiliateProgram(ABC):
         if not affiliate_links:
             return self.logger.info(f"No custom or unused links.")
 
-        create_links = self.create_content_for_links(affiliate_links=affiliate_links)
-
-        if self.NAV_MENU_ID:
-            self.wordpress.update_nav_menu(menu_id=self.NAV_MENU_ID)
+        # Create content based on channel
+        if self.CHANNEL_NAME == ChannelName.WORDPRESS.value:
+            create_links = self.create_wordpress_posts(affiliate_links=affiliate_links)
 
         if not self.IS_FIXED_LINK:
             self.media_service.add_used_affiliate_links(used_links=create_links)
+
+        return create_links

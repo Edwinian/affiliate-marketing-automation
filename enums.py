@@ -25,6 +25,12 @@ class StrEnum(str, Enum):
             raise ValueError(f"Invalid value {v} for {cls.__name__}")
 
 
+class ChannelName(StrEnum):
+    PINTEREST = "PINTEREST"
+    WORDPRESS = "WORDPRESS"
+    INSTAGRAM = "INSTAGRAM"
+
+
 class ProgramBrand(StrEnum):
     AMAZON = "AMAZON"
     NORD = "VPN"
