@@ -778,7 +778,7 @@ class WordpressService(Channel):
     def create(
         self,
         affiliate_link: AffiliateLink,
-        status: WordpressPostStatus = WordpressPostStatus.PENDING.value,
+        status: WordpressPostStatus = WordpressPostStatus.PUBLISH.value,
     ) -> CreateChannelResponse:
         try:
             paragraph_count = 3
