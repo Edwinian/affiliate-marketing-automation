@@ -1098,8 +1098,8 @@ class WordpressService(Channel):
             content = self.llm_service.generate_text(prompt)
             # similar_posts = self.get_similar_posts(title)
 
-            if affiliate_link.additional_content:
-                content += f"\n\n{affiliate_link.additional_content}"
+            if affiliate_link.wordpress_content:
+                content += f"\n\n{affiliate_link.wordpress_content}"
 
             if affiliate_link.video_ids:
                 for id in affiliate_link.video_ids:

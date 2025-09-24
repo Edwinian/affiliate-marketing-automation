@@ -28,7 +28,6 @@ class StrEnum(str, Enum):
 class ChannelName(StrEnum):
     PINTEREST = "PINTEREST"
     WORDPRESS = "WORDPRESS"
-    INSTAGRAM = "INSTAGRAM"
 
 
 class ProgramBrand(StrEnum):

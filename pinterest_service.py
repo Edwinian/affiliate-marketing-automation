@@ -664,8 +664,6 @@ class PinterestService(Channel):
     def create(
         self,
         affiliate_link: AffiliateLink,
-        image_url: Optional[str] = None,
-        video_url: Optional[str] = None,
     ) -> CreateChannelResponse:
         """
         Creates a pin on the specified board with the given image/video URL, and optional affiliate link.
@@ -673,13 +671,16 @@ class PinterestService(Channel):
         """
         try:
             category = affiliate_link.categories[0]
+            thumbnail_url = affiliate_link.thumbnail_url
+            video_url = affiliate_link.video_urls[0]
 
-            if not image_url and not video_url:
+            # Image pin by default if no video URL provided
+            if not thumbnail_url and not video_url:
                 image_urls = self.media_service.get_image_urls(
                     query=category,
                     limit=1,
                 )
-                image_url = image_urls[0]
+                thumbnail_url = image_urls[0]
 
             board = self.get_create_board(category=category)
             board_id = board.get("id")
@@ -709,7 +710,7 @@ class PinterestService(Channel):
                         "source": {"source_type": "url", "url": video_url},
                         "title": title,
                         "description": description,
-                        "thumbnail_url": image_url,
+                        "thumbnail_url": thumbnail_url,
                     },
                     # Remove image-specific field
                     "alt_text": {
@@ -721,7 +722,7 @@ class PinterestService(Channel):
             else:
                 payload = {
                     **base_payload,
-                    "media_source": {"source_type": "image_url", "url": image_url},
+                    "media_source": {"source_type": "image_url", "url": thumbnail_url},
                 }
 
             response = requests.post(url, headers=self.headers, json=payload)
