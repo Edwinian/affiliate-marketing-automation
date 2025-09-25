@@ -1157,7 +1157,7 @@ class WordpressService(Channel):
                 f"The conclusion should include a strong call to action to help boost conversions",
                 f"50-80 words for introduction and conclusion, 100-150 words for each paragraph and the call to action",
                 f"Limit sentences to mo more than 20 words",
-                f"At least 25% of the sentences contain transition words, but do not start the introduction, paragraphs and conclusion with them",
+                f"25% of the sentences contain transition words, but do not start the introduction, paragraphs and conclusion with them",
                 f"Target audience is anyone who could use {affiliate_link.product_title}",
                 f"Do not mention about contacting us for details as we do not work for the company of {affiliate_link.product_title}",
                 f"Return the post content only",
