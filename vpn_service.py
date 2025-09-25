@@ -15,6 +15,7 @@ class VPNService(AffiliateProgram):
         comparison_image_element = get_img_element(
             src=comparison_image_url, alt="NordVPN Comparison"
         )
+        citation_style = "font-size: small;"
         affiliate_links = [
             AffiliateLink(
                 url=f"https://go.nordvpn.net/aff_c?offer_id=15&aff_id=131575&url_id=902",
@@ -24,7 +25,7 @@ class VPNService(AffiliateProgram):
                     "NordVPN",
                 ],
                 cta_image_url="https://webshielddaily.com/wp-content/uploads/2025/09/affiliate-sales-campaign-1500x300-en-us.png",
-                wordpress_content=f'<h3>How NordVPN compares to other top VPNs</h3><div>{comparison_image_element}<div>Source: NordVPN</div><div>Date of comparison: January 11, 2024.</div><div>*Overall network performance according to research by AV-Test. You can read <a href="{comparison_report_url}" target="_blank">the full report</a>.</div></div>',
+                wordpress_content=f'<h3>How NordVPN compares to other top VPNs</h3><div>{comparison_image_element}<div style="{citation_style}">Source: NordVPN</div><div style="{citation_style}">Date of comparison: January 11, 2024.</div><div style="{citation_style}">*Overall network performance according to research by AV-Test. You can read <a href="{comparison_report_url}" target="_blank">the full report</a>.</div></div>',
             ),
             AffiliateLink(
                 url=f"https://go.nordpass.io/aff_c?offer_id=488&aff_id=131575&url_id=9356",
