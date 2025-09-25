@@ -6,13 +6,35 @@ from enums import ProgramBrand
 from fiverr_service import FiverrService
 from logger_service import LoggerService
 from vpn_service import VPNService
+from common import os, load_dotenv
+
+
+def get_affiliate_programs() -> list[AffiliateProgram]:
+    program_service_map: dict[str, AffiliateProgram] = {
+        ProgramBrand.NORD: VPNService(),
+        ProgramBrand.FIVERR: FiverrService(),
+    }
+    run_programs_str = os.getenv("RUN_PROGRAMS", "")
+    run_programs = run_programs_str.split(",")
+    affiliate_programs = [
+        program_service_map.get(program, None) for program in run_programs
+    ]
+    affiliate_programs = [p for p in affiliate_programs if p is not None]
+    return affiliate_programs
 
 
 def execute_crons(
     custom_links_map: Optional[dict[str, list[AffiliateLink]]] = None,
 ):
     logger = LoggerService(name="execute_crons")
-    affiliate_programs: list[AffiliateProgram] = [VPNService(), FiverrService()]
+    affiliate_programs = get_affiliate_programs()
+
+    logger.info(
+        f"Programs to run: {[p.__class__.__name__ for p in affiliate_programs]}"
+    )
+
+    if not affiliate_programs:
+        return
 
     for program in affiliate_programs:
         name = program.__class__.__name__
