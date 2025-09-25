@@ -76,7 +76,9 @@ class Channel(ABC):
                 f"The title is SEO friendly",
                 f"The title does not directly mention {affiliate_link.product_title}",
                 f"The title separates each word with space",
-                f"Target audience is anyone who could use {affiliate_link.product_title}"
+                f"The title is grammatically correct",
+                f"The title paraphrases {focus} instead of directly mentioning it",
+                f"Target audience is anyone who could use {affiliate_link.product_title}",
                 f"Return the title only without quotes",
             ]
 
