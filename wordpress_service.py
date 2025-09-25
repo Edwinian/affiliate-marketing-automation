@@ -1106,13 +1106,13 @@ class WordpressService(Channel):
             },
             {
                 "redirect_url": "https://www.linkedin.com/sharing/share-offsite/?url={url}",
-                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/pinterest.png",
+                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/linkedin.png",
                 "alt": "Linkedin",
                 "color": "#0077b5",
             },
             {
                 "redirect_url": "https://pinterest.com/pin/create/button/?url={url}&description={title}",
-                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/linkedin.png",
+                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/pinterest.png",
                 "alt": "Pinterest",
                 "color": "#BD081C",
             },
