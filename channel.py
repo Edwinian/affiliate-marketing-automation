@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from all_types import AffiliateLink, CreateChannelResponse
+from constants import PROMPT_SPLIT_JOINER
 from enums import LlmErrorPrompt, ProgramBrand
 from llm_service import LlmService
 from logger_service import LoggerService
@@ -47,7 +48,7 @@ class Channel(ABC):
                 f"Sort the keywords by highest relevance to the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}",
                 f"Return the keywords only separated by commas",
             ]
-            prompt = ". ".join(prompt_splits)
+            prompt = PROMPT_SPLIT_JOINER.join(prompt_splits)
             keywords_text = self.llm_service.generate_text(prompt)
             keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
             keywords = _remove_forbidden_keywords(keywords)
@@ -75,6 +76,7 @@ class Channel(ABC):
                 f"The title is SEO friendly",
                 f"The title does not directly mention {affiliate_link.product_title}",
                 f"The title separates each word with space",
+                f"Target audience is anyone who could use {affiliate_link.product_title}"
                 f"Return the title only without quotes",
             ]
 
@@ -88,7 +90,7 @@ class Channel(ABC):
                     f"The title should be no more than {limit} characters including spaces"
                 )
 
-            prompt = ". ".join(prompt_splits)
+            prompt = PROMPT_SPLIT_JOINER.join(prompt_splits)
             title = self.llm_service.generate_text(prompt)
 
             if category_titles and LlmErrorPrompt.LENGTH_EXCEEDED in title:

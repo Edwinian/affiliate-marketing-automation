@@ -11,6 +11,7 @@ from all_types import (
     WordpressTag,
 )
 from channel import Channel
+from constants import PROMPT_SPLIT_JOINER
 from enums import LlmErrorPrompt, WordpressPostStatus
 
 from common import os, load_dotenv, requests
@@ -778,7 +779,6 @@ class WordpressService(Channel):
     def create(
         self,
         affiliate_link: AffiliateLink,
-        status: WordpressPostStatus = WordpressPostStatus.PUBLISH.value,
     ) -> CreateChannelResponse:
         try:
             paragraph_count = 3
@@ -810,9 +810,11 @@ class WordpressService(Channel):
                 affiliate_link
             )
             url = f"{self.api_url}/posts"
-
-            if self.is_wordpress_hosted:
-                status = WordpressPostStatus.PENDING.value
+            status = (
+                WordpressPostStatus.PENDING.value
+                if self.is_wordpress_hosted
+                else WordpressPostStatus.PUBLISH.value
+            )
 
             # Author is the display name of the user
             payload = {
@@ -1070,6 +1072,75 @@ class WordpressService(Channel):
 
         return cta_content
 
+    def get_similar_posts_content(self, title: str) -> str:
+        content = ""
+        similar_posts = self.get_similar_posts(title)
+
+        if similar_posts:
+            content = "<h4><strong>Related Posts</strong></h4>\n"
+            for post in similar_posts:
+                content += (
+                    f'<a href="{post.link}" target="_blank">{post.title}</a><br>\n'
+                )
+
+        return content
+
+    def _get_social_media_content(
+        self, affiliate_link: AffiliateLink, title: str
+    ) -> str:
+        common_style = {
+            "height": "25px",
+        }
+        buttons = [
+            {
+                "redirect_url": "https://www.facebook.com/sharer/sharer.php?u={url}",
+                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/facebook.png",
+                "alt": "Facebook",
+                "color": "#3b5998",
+            },
+            {
+                "redirect_url": "https://twitter.com/intent/tweet?url={url}&text={title}",
+                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/twitter.png",
+                "alt": "X_Twitter",
+                "color": "#1DA1F2",
+            },
+            {
+                "redirect_url": "https://www.linkedin.com/sharing/share-offsite/?url={url}",
+                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/pinterest.png",
+                "alt": "Linkedin",
+                "color": "#0077b5",
+            },
+            {
+                "redirect_url": "https://pinterest.com/pin/create/button/?url={url}&description={title}",
+                "img_src": "https://webshielddaily.com/wp-content/uploads/2025/09/linkedin.png",
+                "alt": "Pinterest",
+                "color": "#BD081C",
+            },
+        ]
+
+        # Generate button HTML dynamically
+        buttons_html = []
+        for button in buttons:
+            # Format the URL with actual values
+            url = button["redirect_url"].format(url=affiliate_link.url, title=title)
+
+            button_html = (
+                f'<a href="{url}" target="_blank" rel="noopener" style="margin-right: 10px; color: {button["color"]};">'
+                f'{get_img_element(src=button["img_src"], alt=button["alt"], style=common_style)}'
+                f"</a>"
+            )
+            buttons_html.append(button_html)
+
+        # Join all buttons and create the container
+        buttons_content = "".join(buttons_html)
+
+        return (
+            f"<h4><strong>Share With Friends</strong></h4>\n"
+            f'<div class="social-share" style="margin-top: 20px; display: flex; flex-direction: row; align-items: center;">'
+            f"{buttons_content}"
+            f"</div>"
+        )
+
     def get_post_content(
         self,
         title: str,
@@ -1086,7 +1157,9 @@ class WordpressService(Channel):
                 f"The conclusion should include a strong call to action to help boost conversions",
                 f"50-80 words for introduction and conclusion, 100-150 words for each paragraph and the call to action",
                 f"Limit sentences to mo more than 20 words",
-                f"At least 25% of the sentences contain transition words",
+                f"At least 25% of the sentences contain transition words, but do not start the introduction, paragraphs and conclusion with them",
+                f"Target audience is anyone who could use {affiliate_link.product_title}",
+                f"Do not mention about contacting us for details as we do not work for the company of {affiliate_link.product_title}",
                 f"Return the post content only",
             ]
 
@@ -1094,9 +1167,9 @@ class WordpressService(Channel):
                 prompt_splits.append(
                     f"Add these images in front of each paragraph respectively, wrapped with the <img> tag with style 'max-width: 100%; height: auto; display: block;': {', '.join(image_urls[:paragraph_count])}",
                 )
-            prompt = ". ".join(prompt_splits)
+
+            prompt = PROMPT_SPLIT_JOINER.join(prompt_splits)
             content = self.llm_service.generate_text(prompt)
-            # similar_posts = self.get_similar_posts(title)
 
             if affiliate_link.wordpress_content:
                 content += f"\n\n{affiliate_link.wordpress_content}"
@@ -1114,22 +1187,13 @@ class WordpressService(Channel):
             content += f"\n\n<small>{self.DISCLOSURE}</small>"
 
             # Add social media share buttons
-            content += (
-                f'\n\n<div class="social-share" style="margin-top: 20px; display: flex; flex-direction: row; align-items: center;">'
-                f'<a href="https://www.facebook.com/sharer/sharer.php?u={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #3b5998;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/facebook.png', alt='Facebook', style='height: 25px')}</a>'
-                f'<a href="https://twitter.com/intent/tweet?url={affiliate_link.url}&text={title}" target="_blank" rel="noopener" style="margin-right: 10px; color: #1DA1F2;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/twitter.png', alt='X_Twitter', style='height: 25px')}</a>'
-                f'<a href="https://www.linkedin.com/sharing/share-offsite/?url={affiliate_link.url}" target="_blank" rel="noopener" style="margin-right: 10px; color: #0077b5;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/pinterest.png', alt='Linkedin', style='height: 25px')}</a>'
-                f'<a href="https://pinterest.com/pin/create/button/?url={affiliate_link.url}&description={title}" target="_blank" rel="noopener" style="color: #BD081C;">{get_img_element(src='https://webshielddaily.com/wp-content/uploads/2025/09/linkedin.png', alt='Pinterest', style='height: 25px')}</a>'
-                f"</div>"
-            )
+            social_media_content = self._get_social_media_content(affiliate_link, title)
+            content += f"\n\n{social_media_content}"
 
+            ## Use Wordpress option instead to reduce prompt usage
             # # Add related posts if any
-            # if similar_posts:
-            #     content += "\n\n<h4><strong>Related Posts</strong></h4>\n"
-            #     for post in similar_posts:
-            #         content += (
-            #             f'<a href="{post.link}" target="_blank">{post.title}</a><br>\n'
-            #         )
+            # similar_posts_content = self.get_similar_posts_content(title)
+            # content += f"\n\n{similar_posts_content}"
 
             return content
         except Exception as e:

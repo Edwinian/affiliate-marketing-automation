@@ -1,11 +1,43 @@
 import time
 import random
 from functools import wraps
-from typing import Callable, Any, Optional
+from typing import Callable, Any, Optional, Dict
+from constants import PROMPT_SPLIT_JOINER
 
 
-def get_img_element(src=str, alt: Optional[str] = "", style: Optional[str] = "") -> str:
-    return f'<img src="{src}" alt="{alt}" style="max-width: 100%; height: auto; display: block; {style}">'
+def get_content_with_max_length(content: str, max_length: int) -> str:
+    if len(content) <= max_length:
+        return content
+
+    sentences = content.split(PROMPT_SPLIT_JOINER)
+
+    if len(sentences) == 1:
+        truncate_suffix = "..."
+        truncate_length = max_length - len(truncate_suffix)
+        return content[:truncate_length] + truncate_suffix
+
+    result = []
+
+    for sentence in sentences:
+        if len(result) > max_length:
+            break
+        result.append(sentence + PROMPT_SPLIT_JOINER)
+
+    return "".join(result)
+
+
+def get_img_element(
+    src: str, alt: Optional[str] = "", style: Optional[Dict[str, str]] = None
+) -> str:
+    base_style = {"max-width": "100%", "height": "auto", "display": "block"}
+
+    if style:
+        style = {**base_style, **style}
+    else:
+        style = base_style
+
+    style_string = "; ".join([f"{key}: {value}" for key, value in style.items()])
+    return f'<img src="{src}" alt="{alt}" style="{style_string}">'
 
 
 def get_with_retry(

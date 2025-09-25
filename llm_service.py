@@ -1,3 +1,4 @@
+from constants import PROMPT_SPLIT_JOINER
 from xai_sdk import Client
 from xai_sdk.chat import user
 from enums import LlmErrorPrompt
@@ -24,7 +25,7 @@ class LlmService:
                 f"Respond with {LlmErrorPrompt.LENGTH_EXCEEDED} if input + output length is too long. {prompt}",
                 f"Do not include prompt in the response",
             ]
-            prompt = ". ".join(prompt_splits)
+            prompt = PROMPT_SPLIT_JOINER.join(prompt_splits)
             chat = self.x_client.chat.create(model=self.model_name)
             chat.append(user(prompt))
             response = chat.sample()

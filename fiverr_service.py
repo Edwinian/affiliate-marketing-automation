@@ -68,7 +68,7 @@ class FiverrService(AffiliateProgram):
         affiliate_links = [
             AffiliateLink(
                 url=f"https://www.fiverr.com/?utm_source=1144512&utm_medium=cx_affiliate&utm_campaign=_bus-y&afp=&cxd_token=1144512_42729223&show_join=true",
-                product_title=f"{cat["title"]} Freelance Hiring",
+                product_title=f"{cat['title']} freelance hiring",
                 categories=[cat["title"], "Gigs"],
                 cta_image_url=cat.get("cta_image_url", None),
                 cta_btn_text="Explore Gigs on Fiverr",
@@ -78,7 +78,7 @@ class FiverrService(AffiliateProgram):
         referral_links = [
             AffiliateLink(
                 url=f"https://go.fiverr.com/visit/?bta=1144512&brand={brand['param']}",
-                product_title=f"Joining {brand['title']}",
+                product_title=brand["title"],
                 categories=[brand["title"]],
                 cta_image_url=brand["cta_image_url"],
             )

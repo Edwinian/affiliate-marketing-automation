@@ -7,9 +7,11 @@ from typing import Dict, List, Any, Optional
 
 from all_types import AffiliateLink, CreateChannelResponse, Pin, UsedLink, WordpressPost
 from channel import Channel
+from constants import PROMPT_SPLIT_JOINER
 from enums import PinterestTrendType
 
 from common import os, load_dotenv, requests
+from utils import get_content_with_max_length
 
 
 class PinterestService(Channel):
@@ -217,7 +219,7 @@ class PinterestService(Channel):
             datetime.now()
             + timedelta(minutes=self.ALL_PUBLISH_DELAY_MIN + publish_delay_min)
         ).strftime("%Y-%m-%d %H:%M:%S")
-        description = self.get_pin_description(title=title)
+        description = self.get_description(title=title)
         keywords = self.query_keywords_map.get(category, []) or self.get_keywords(
             affiliate_link=AffiliateLink(
                 url=link, product_title=title, categories=[category]
@@ -685,7 +687,6 @@ class PinterestService(Channel):
 
             board = self.get_create_board(category=category)
             board_id = board.get("id")
-            print("board_id", board_id),
 
             if not board_id:
                 self.logger.info("No valid board ID found.")
@@ -694,7 +695,7 @@ class PinterestService(Channel):
             title = self.get_title(
                 affiliate_link=affiliate_link, limit=self.TITLE_LIMIT
             )
-            description = self.get_pin_description(title=title)
+            description = self.get_description(title=title)
             url = f"{self.base_url}/pins"
             base_payload = {
                 "board_id": board_id,
@@ -740,7 +741,7 @@ class PinterestService(Channel):
             )
             return ""
 
-    def get_pin_description(self, title: str) -> str:
+    def get_description(self, title: str) -> str:
         """
         Generates an SEO-friendly pin description using LlmService.
 
@@ -757,31 +758,20 @@ class PinterestService(Channel):
 
         # Calculate available space for main content
         available_length = MAX_LENGTH - DISCLOSURE_LENGTH
-
-        prompt = (
-            f"Create a Pinterest description in no more than {available_length} characters "
-            f"(including spaces) for this title that is SEO friendly, time-agnostic, "
-            f"suitable for affiliate marketing, and includes a strong call to action. "
-            f"Respond with the description only, without mentioning the length limit: '{title}'"
-        )
+        prompt_splits = [
+            f"Create a Pinterest description for the title {title} in no more than {available_length} characters that is SEO friendly",
+            f"Suitable for affiliate marketing, and includes a strong call to action to help boost conversions",
+            f"Respond with the description only, without mentioning the length limit: '{title}'",
+        ]
+        prompt = PROMPT_SPLIT_JOINER.join(prompt_splits)
 
         try:
-            generated_description = self.llm_service.generate_text(prompt).strip()
+            description = self.llm_service.generate_text(prompt).strip()
+            description += DISCLOSURE
+            description = get_content_with_max_length(description, MAX_LENGTH)
 
-            # Ensure space for the disclosure
-            if len(generated_description) > available_length:
-                generated_description = generated_description[
-                    :available_length
-                ].rstrip()
-
-            # Combine and truncate to final limit if needed
-            full_description = f"{generated_description}{DISCLOSURE}"
-            final_description = full_description[:MAX_LENGTH]
-
-            self.logger.info(
-                f"Generated description length: {len(final_description)} chars"
-            )
-            return final_description
+            self.logger.info(f"Generated description length: {len(description)} chars")
+            return description
 
         except Exception as e:
             self.logger.error(f"Error generating description for '{title}': {e}")

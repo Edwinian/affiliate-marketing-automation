@@ -1,0 +1,1 @@
+PROMPT_SPLIT_JOINER = ". "
