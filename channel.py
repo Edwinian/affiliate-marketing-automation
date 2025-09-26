@@ -84,7 +84,7 @@ class Channel(ABC):
 
             if category_titles:
                 prompt_splits.append(
-                    f"The message of the title relates to but should not overlap with that of existing titles: {', '.join(category_titles)}"
+                    f"The title should be about a different topic from existing titles: {', '.join(category_titles)}"
                 )
 
             if limit:
