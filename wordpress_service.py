@@ -1,3 +1,4 @@
+import base64
 import html
 from urllib.error import HTTPError
 import requests
@@ -27,12 +28,34 @@ class WordpressService(Channel):
         super().__init__()
         self.api_url = credentials["API_URL"]
         self.frontend_url = credentials["FRONTEND_URL"]
-        self.headers = {
+        self.headers = self.get_headers(credentials)
+        self.is_wordpress_hosted = is_wordpress_hosted
+
+    def get_headers(self, credentials: dict[str, str]):
+        headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {credentials['ACCESS_TOKEN']}",
             "User-Agent": "affiliate_marketing_automation/1.0",
         }
-        self.is_wordpress_hosted = is_wordpress_hosted
+        access_token = credentials.get("ACCESS_TOKEN", None)
+        username = credentials.get("USERNAME", None)
+        app_password = credentials.get("APP_PASSWORD", None)
+
+        if all([not access_token, any([not username, not app_password])]):
+            self.logger.error(
+                "No authentication method provided. Please set ACCESS_TOKEN for JWT auth or USERNAME and APP_PASSWORD for Basic auth."
+            )
+            return headers
+
+        if access_token:
+            headers["Authorization"] = f"Bearer {access_token}"
+        else:
+            username = credentials.get("USERNAME")
+            app_password = credentials.get("APP_PASSWORD")
+            auth_string = f"{username}:{app_password}"
+            encoded_auth = base64.b64encode(auth_string.encode()).decode()
+            headers["Authorization"] = f"Basic {encoded_auth}"
+
+        return headers
 
     def sanitize(self, title: str) -> str:
         # WP may replace spaces with non-breaking spaces
