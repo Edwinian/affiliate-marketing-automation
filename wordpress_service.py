@@ -87,6 +87,8 @@ class WordpressService(Channel):
 
             # Step 2: Get existing menu items and extract titles
             menu_items = self.get_menu_items(menu_id)
+            existing_titles = []
+
             if not menu_items:
                 self.logger.info(f"No existing menu items found for menu ID {menu_id}")
             else:
