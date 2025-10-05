@@ -1181,7 +1181,7 @@ class WordpressService(Channel):
                 f"The conclusion is peceded by a title that emphasizes it is a good choice",
                 f"The conclusion relates the content to {affiliate_link.product_title} and explains why it is a good choice",
                 f"The conclusion should include a strong call to action to help boost conversions",
-                f"150-200 words for introduction and conclusion, 350-400 words for each body paragraph and the call to action",
+                f"100 words for introduction and conclusion, 150 words for each body paragraph and the call to action",
                 f"Limit sentences to no more than 20 words",
                 f"25% of the sentences contain transition words, but do not start the introduction, body paragraphs and conclusion with them",
                 f"Target audience is anyone who could use {affiliate_link.product_title}",
