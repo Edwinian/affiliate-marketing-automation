@@ -76,7 +76,7 @@ class Channel(ABC):
                 f"The title is SEO friendly",
                 f"The title does not directly mention {affiliate_link.product_title}",
                 f"The title separates each word with space",
-                f"The title is grammatically correct",
+                f"The title is grammatically correct with proper preposition words",
                 f"The title does not directly mention {focus}",
                 f"Target audience is anyone who could use {affiliate_link.product_title}",
                 f"Return the title only without quotes",
@@ -84,7 +84,7 @@ class Channel(ABC):
 
             if category_titles:
                 prompt_splits.append(
-                    f"The message of the title relates to but should not overlap with that of existing titles: {', '.join(category_titles)}"
+                    f"The title should be about a different topic from existing titles: {', '.join(category_titles)}"
                 )
 
             if limit:

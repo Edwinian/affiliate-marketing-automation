@@ -45,13 +45,16 @@ class AffiliateProgram(ABC):
         pass
 
     def init_wordpress_service(self):
+        # Basic auth for self-hosted WP sites
         credentials = {
             "API_URL": os.getenv(f"WORDPRESS_API_URL_{self.PROGRAM_KEY}"),
             "FRONTEND_URL": os.getenv(f"WORDPRESS_FRONTEND_URL_{self.PROGRAM_KEY}"),
-            "ACCESS_TOKEN": os.getenv(f"WORDPRESS_ACCESS_TOKEN_{self.PROGRAM_KEY}"),
+            "USERNAME": os.getenv(f"WORDPRESS_USERNAME_{self.PROGRAM_KEY}"),
+            "APP_PASSWORD": os.getenv(f"WORDPRESS_APP_PASSWORD_{self.PROGRAM_KEY}"),
         }
         is_wordpress_hosted = False
 
+        # JWT auth for WP-hosted sites
         for key, value in credentials.items():
             if value is None:
                 self.logger.warning(
