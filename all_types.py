@@ -37,6 +37,7 @@ class AffiliateLink:
     cta_image_url: Optional[str] = None
     cta_btn_text: Optional[str] = None
     wordpress_content: Optional[str] = None
+    keywords: Optional[list[str]] = None
 
 
 @dataclass

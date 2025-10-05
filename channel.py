@@ -22,7 +22,6 @@ class Channel(ABC):
     def get_keywords(
         self,
         affiliate_link: AffiliateLink,
-        limit: int = 5,
     ) -> list[str]:
         def _remove_forbidden_keywords(keywords: list[str]) -> list[str]:
             """
@@ -52,10 +51,11 @@ class Channel(ABC):
             keywords_text = self.llm_service.generate_text(prompt)
             keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
             keywords = _remove_forbidden_keywords(keywords)
-            return keywords[:limit]
+            keywords += affiliate_link.keywords or []
+            return keywords
         except Exception as e:
             self.logger.error(f"Error generating keywords from model: {e}")
-            return affiliate_link.categories[:limit]
+            return affiliate_link.categories
 
     def get_title(
         self,

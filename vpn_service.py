@@ -18,6 +18,13 @@ class VPNService(AffiliateProgram):
         citation_style = "font-size: small;"
         affiliate_links = [
             AffiliateLink(
+                keywords=[
+                    "Best VPN",
+                    "Top VPN",
+                    "Fastest VPN",
+                    "Secure VPN",
+                    "VPN Service",
+                ],
                 url=f"https://go.nordvpn.net/aff_c?offer_id=15&aff_id=131575&url_id=902",
                 product_title="NordVPN",
                 categories=[
@@ -28,6 +35,9 @@ class VPNService(AffiliateProgram):
                 wordpress_content=f'<h3>How NordVPN compares to other top VPNs</h3><div>{comparison_image_element}<div style="{citation_style}">Source: NordVPN</div><div style="{citation_style}">Date of comparison: January 11, 2024.</div><div style="{citation_style}">*Overall network performance according to research by AV-Test. You can read <a href="{comparison_report_url}" target="_blank">the full report</a>.</div></div>',
             ),
             AffiliateLink(
+                keywords=[
+                    "Best Security",
+                ],
                 url=f"https://go.nordpass.io/aff_c?offer_id=488&aff_id=131575&url_id=9356",
                 product_title="NordPass",
                 categories=[
