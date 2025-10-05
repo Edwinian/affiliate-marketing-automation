@@ -79,7 +79,7 @@ class Channel(ABC):
                 f"The title is grammatically correct with proper preposition words",
                 f"The title does not directly mention {focus}",
                 f"Target audience is anyone who could use {affiliate_link.product_title}",
-                f"Use acroncyms where appropriate (e.g. VPN instead of Virtual Private Network)",
+                f"Use acronym where appropriate (e.g. VPN instead of Virtual Private Network)",
                 f"Return the title only without quotes",
             ]
 
