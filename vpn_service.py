@@ -20,10 +20,6 @@ class VPNService(AffiliateProgram):
             AffiliateLink(
                 keywords=[
                     "Best VPN",
-                    "Top VPN",
-                    "Fastest VPN",
-                    "Secure VPN",
-                    "VPN Service",
                 ],
                 url=f"https://go.nordvpn.net/aff_c?offer_id=15&aff_id=131575&url_id=902",
                 product_title="NordVPN",
@@ -36,7 +32,7 @@ class VPNService(AffiliateProgram):
             ),
             AffiliateLink(
                 keywords=[
-                    "Best Security",
+                    "Best Password Manager",
                 ],
                 url=f"https://go.nordpass.io/aff_c?offer_id=488&aff_id=131575&url_id=9356",
                 product_title="NordPass",
