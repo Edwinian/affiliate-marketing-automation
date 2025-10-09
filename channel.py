@@ -22,6 +22,7 @@ class Channel(ABC):
     def get_keywords(
         self,
         affiliate_link: AffiliateLink,
+        limit: Optional[int] = None,
     ) -> list[str]:
         def _remove_forbidden_keywords(keywords: list[str]) -> list[str]:
             """
@@ -47,11 +48,14 @@ class Channel(ABC):
                 f"Sort the keywords by highest relevance to the category {affiliate_link.categories[0]} and the product title: {affiliate_link.product_title}",
                 f"Return the keywords only separated by commas",
             ]
+
+            if limit:
+                prompt_splits.append(f"Limit to {limit} keywords")
+                
             prompt = PROMPT_SPLIT_JOINER.join(prompt_splits)
             keywords_text = self.llm_service.generate_text(prompt)
             keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
             keywords = _remove_forbidden_keywords(keywords)
-            keywords += affiliate_link.keywords or []
             return keywords
         except Exception as e:
             self.logger.error(f"Error generating keywords from model: {e}")
@@ -86,6 +90,11 @@ class Channel(ABC):
             if category_titles:
                 prompt_splits.append(
                     f"The title should be about a different topic from existing titles: {', '.join(category_titles)}"
+                )
+
+            if affiliate_link.keywords:
+                prompt_splits.append(
+                    f"Prefix the title with '{affiliate_link.keywords[0]}':"
                 )
 
             if limit:

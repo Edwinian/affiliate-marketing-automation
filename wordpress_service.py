@@ -1006,7 +1006,7 @@ class WordpressService(Channel):
             return []
 
     def get_similar_tag_ids(
-        self, title: str, tags: List[WordpressTag] = []
+        self, title: str, tags: List[WordpressTag] = [], limit=2
     ) -> List[int]:
         try:
             all_tags = tags or self.get_tags()
@@ -1035,20 +1035,21 @@ class WordpressService(Channel):
                 if len(all_tags) > 1:
                     trim_count = min(5, len(all_tags) - 1)
                     return self.get_similar_tag_ids(
-                        title=title, tags=all_tags[:-trim_count]
+                        title=title, tags=all_tags[:-trim_count], limit=limit
                     )
                 else:
                     return []
-
-            return [int(tag_id) for tag_id in tag_ids_str]
+            
+            ids = [int(tag_id) for tag_id in tag_ids_str]
+            return ids[:limit]
         except Exception as e:
             self.logger.error(f"Error finding similar tags: {e}")
             return []
 
-    def create_tags(self, affiliate_link: AffiliateLink) -> List[int]:
+    def create_tags(self, affiliate_link: AffiliateLink, limit=3) -> List[int]:
         try:
             tag_ids = []
-            new_tags = self.get_keywords(affiliate_link=affiliate_link)
+            new_tags = self.get_keywords(affiliate_link=affiliate_link, limit=limit)
 
             for new_tag in new_tags:
                 self.logger.info(f"Creating tag: {new_tag.strip()}")
