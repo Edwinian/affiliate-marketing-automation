@@ -1047,11 +1047,11 @@ class WordpressService(Channel):
             return []
 
     def create_tags(self, affiliate_link: AffiliateLink, limit=3) -> List[int]:
-        try:
-            tag_ids = []
-            new_tags = self.get_keywords(affiliate_link=affiliate_link, limit=limit)
-
-            for new_tag in new_tags:
+        tag_ids = []
+        new_tags = self.get_keywords(affiliate_link=affiliate_link, limit=limit)
+        
+        for new_tag in new_tags:
+            try:
                 self.logger.info(f"Creating tag: {new_tag.strip()}")
                 response = requests.post(
                     f"{self.api_url}/tags", headers=self.headers, json={"name": new_tag}
@@ -1059,13 +1059,20 @@ class WordpressService(Channel):
                 response.raise_for_status()
                 tag_id = response.json().get("id", 0)
                 tag_ids.append(tag_id)
+            except requests.RequestException as e:
+                # Tags may already exist, try fetching existing tag ID
+                all_tags = self.get_tags(new_tag)
+                tag = next((t for t in all_tags if t.name == new_tag), None)
 
-            return tag_ids
-        except requests.RequestException as e:
-            self.logger.error(
-                f"Error creating tag {affiliate_link.product_title}: {e}, Response: {e.response.text if e.response else 'No response'}"
-            )
-            return []
+                if tag:
+                    tag_ids.append(tag.id)
+                else:
+                    self.logger.error(
+                        f"Error creating tag {affiliate_link.product_title}: {e}, Response: {e.response.text if e.response else 'No response'}"
+                    )
+                continue
+
+        return tag_ids
 
     def _get_cta_content(self, affiliate_link: AffiliateLink) -> str:
         style = "margin-top: 20px;"
