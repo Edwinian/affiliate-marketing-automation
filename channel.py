@@ -104,7 +104,9 @@ class Channel(ABC):
                 category_titles.pop()
                 return self.get_title(affiliate_link, category_titles=category_titles)
             
+            # if keyword exists, make sure title does not include it and is prefixed with it instead
             if affiliate_link.keywords:
+                title = title.replace(affiliate_link.keywords[0], "").strip()
                 title = f"{affiliate_link.keywords[0]}: {title}"
 
             return title
