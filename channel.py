@@ -51,7 +51,7 @@ class Channel(ABC):
 
             if limit:
                 prompt_splits.append(f"Limit to {limit} keywords")
-                
+
             prompt = PROMPT_SPLIT_JOINER.join(prompt_splits)
             keywords_text = self.llm_service.generate_text(prompt)
             keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
@@ -92,11 +92,6 @@ class Channel(ABC):
                     f"The title should be about a different topic from existing titles: {', '.join(category_titles)}"
                 )
 
-            if affiliate_link.keywords:
-                prompt_splits.append(
-                    f"Prefix the title with '{affiliate_link.keywords[0]}':"
-                )
-
             if limit:
                 prompt_splits.append(
                     f"The title should be no more than {limit} characters including spaces"
@@ -108,6 +103,9 @@ class Channel(ABC):
             if category_titles and LlmErrorPrompt.LENGTH_EXCEEDED in title:
                 category_titles.pop()
                 return self.get_title(affiliate_link, category_titles=category_titles)
+            
+            if affiliate_link.keywords:
+                title = f"{affiliate_link.keywords[0]}: {title}"
 
             return title
         except Exception as e:
