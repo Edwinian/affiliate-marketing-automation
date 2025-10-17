@@ -1,6 +1,6 @@
 import base64
 import html
-from random import random
+import random
 from urllib.error import HTTPError
 import requests
 from typing import List, Optional
