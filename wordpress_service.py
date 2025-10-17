@@ -1187,7 +1187,7 @@ class WordpressService(Channel):
                 f"Give me a wordpress post content for the title {title} that tells a story to connect to audience, including an introduction, {paragraph_count} body paragraphs, and a conclusion",
                 f"2 empty lines to separate introduction and the first body paragraph, 2 empty lines to separate conclusion and the last paragraph, 1 empty line to separate the body paragraphs",
                 f"Each body paragraph is preceded by a title that summarizes the paragraph wrapped with the <h3><b></b></h3> tag instead of the <p></p> tag",
-                f"The second body paragraph is preceded by cta content: {cta_content}",
+                f"The second body paragraph is preceded by cta content: {cta_content}, but there is no need to relate the body content to the cta content",
                 f"The conclusion is preceded by a title that emphasizes it is a good choice",
                 f"The conclusion relates the content to {affiliate_link.product_title} and explains why it is a good choice",
                 # f"The conclusion should include a strong call to action to help boost conversions",
