@@ -68,15 +68,16 @@ class Channel(ABC):
         limit: Optional[int] = None,
     ) -> str:
         focuses = [
-            f"an benefit of using {affiliate_link.product_title}",
-            f"a potential consequence of not using {affiliate_link.product_title}",
+            f"benefit of using {affiliate_link.product_title}",
+            f"potential consequence of not using {affiliate_link.product_title}",
         ]
         focus_idx = random.randint(0, len(focuses) - 1)
         focus = focuses[focus_idx]
 
         try:
             prompt_splits = [
-                f"Give me one title about {affiliate_link.categories[0]} and {focus}",
+                f"Give me one title about {affiliate_link.categories[0]} and a {focus}",
+                f"The {focus} is an use case that appeals to a wide audience",
                 f"The title should be compelling and stand out",
                 f"The title does not directly mention {affiliate_link.product_title}",
                 f"The title separates each word with space",
